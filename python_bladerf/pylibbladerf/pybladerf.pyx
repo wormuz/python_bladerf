@@ -1968,6 +1968,20 @@ cdef class PyBladerfDevice:
         result = cbladerf.bladerf_set_rfic_register(self.__bladerf_device, <uint16_t> address, <uint8_t> value)
         raise_error('pybladerf_set_rfic_register()', result)
 
+    def pybladerf_config_gpio_read(self) -> int:
+        """Read the FPGA configuration GPIO register.
+
+        Carries the per-format mode bits (TIMESTAMP, PACKET, 8BIT_MODE,
+        HIGHLY_PACKED) that both directions share. perform_format_config()
+        writes the whole word from one direction's format, so this is where
+        a stream configuration on one direction can clobber the mode the
+        other direction needs.
+        """
+        cdef uint32_t value
+        result = cbladerf.bladerf_config_gpio_read(self.__bladerf_device, &value)
+        raise_error('pybladerf_config_gpio_read()', result)
+        return value
+
     def pybladerf_get_rffe_control(self) -> int:
         """Read the RFFE control register (FPGA, not RFIC).
 
