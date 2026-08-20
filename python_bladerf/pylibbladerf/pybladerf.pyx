@@ -1996,6 +1996,25 @@ cdef class PyBladerfDevice:
         raise_error('pybladerf_get_rffe_control()', result)
         return value
 
+    def pybladerf_get_rfic_register(self, address: int) -> int:
+        """Read one RFIC (AD9361) register over SPI.
+
+        Needed because no FPGA-side register reflects the RFIC's internal
+        state: the ENSM state, the digital datapath status and the filter
+        enables live only here. Without this an RFIC stuck with a gated
+        TX digital clock is indistinguishable from a healthy one, since
+        the FPGA enable pins read correct in both cases.
+        """
+        cdef uint8_t value
+        result = cbladerf.bladerf_get_rfic_register(self.__bladerf_device, <uint16_t> address, &value)
+        raise_error('pybladerf_get_rfic_register()', result)
+        return value
+
+    def pybladerf_set_rfic_register(self, address: int, value: int) -> None:
+        """Write one RFIC (AD9361) register over SPI."""
+        result = cbladerf.bladerf_set_rfic_register(self.__bladerf_device, <uint16_t> address, <uint8_t> value)
+        raise_error('pybladerf_set_rfic_register()', result)
+
     def pybladerf_get_rfic_temperature(self) -> float:
         cdef float value
         result = cbladerf.bladerf_get_rfic_temperature(self.__bladerf_device, &value)
