@@ -552,6 +552,7 @@ cdef extern from 'bladeRF2.h' nogil:
     int bladerf_get_rfic_register(bladerf *dev, uint16_t address, uint8_t *val)
 
     int bladerf_set_rfic_register(bladerf *dev, uint16_t address, uint8_t val)
+    int bladerf_get_rffe_control(bladerf *dev, uint32_t *value)
 
     int bladerf_get_rfic_temperature(bladerf *dev, float *val)
 

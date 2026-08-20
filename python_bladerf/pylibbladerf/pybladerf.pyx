@@ -1968,6 +1968,20 @@ cdef class PyBladerfDevice:
         result = cbladerf.bladerf_set_rfic_register(self.__bladerf_device, <uint16_t> address, <uint8_t> value)
         raise_error('pybladerf_set_rfic_register()', result)
 
+    def pybladerf_get_rffe_control(self) -> int:
+        """Read the RFFE control register (FPGA, not RFIC).
+
+        Carries the RF front-end state that no RFIC register reflects:
+        SPDT switch positions, per-channel enables, and the direction
+        ENABLE/TXNRX bits. Needed to tell a switch left in its shutdown
+        position from an RFIC problem -- every RFIC register can read
+        back correct while the signal is routed nowhere.
+        """
+        cdef uint32_t value
+        result = cbladerf.bladerf_get_rffe_control(self.__bladerf_device, &value)
+        raise_error('pybladerf_get_rffe_control()', result)
+        return value
+
     def pybladerf_get_rfic_temperature(self) -> float:
         cdef float value
         result = cbladerf.bladerf_get_rfic_temperature(self.__bladerf_device, &value)
