@@ -12,6 +12,16 @@ INSTALL_REQUIRES = ['Cython>=3.1.0,<3.2.1', 'numpy']
 SETUP_REQUIRES = ['Cython>=3.1.0,<3.2.1', 'numpy']
 libbladerf_h_paths = []
 
+# The .pxd files carry the layout of PyBladerfDevice and the libbladeRF
+# declarations. Without them in depends, editing a .pxd leaves the modules that
+# cimport it compiled against the old struct layout, which shows up at import
+# time as "PyBladerfDevice size changed, may indicate binary incompatibility"
+# and then as a segfault.
+PXD_DEPENDS = [
+    'python_bladerf/pylibbladerf/pybladerf.pxd',
+    'python_bladerf/pylibbladerf/cbladerf.pxd',
+]
+
 PLATFORM = sys.platform
 
 if getenv('LIBLINK'):
@@ -104,6 +114,7 @@ setup(  # type: ignore
             sources=['python_bladerf/pylibbladerf/pybladerf.pyx'],
             include_dirs=['python_bladerf/pylibbladerf', *libbladerf_h_paths, numpy.get_include()],
             extra_compile_args=['-w'],
+            depends=PXD_DEPENDS,
             language='c++',
         ),
         Extension(  # type: ignore
@@ -111,6 +122,7 @@ setup(  # type: ignore
             sources=['python_bladerf/pybladerf_tools/pybladerf_sweep.pyx'],
             include_dirs=['python_bladerf/pylibbladerf', 'python_bladerf/pybladerf_tools', *libbladerf_h_paths, numpy.get_include()],
             extra_compile_args=['-w'],
+            depends=PXD_DEPENDS,
             language='c++',
         ),
         Extension(  # type: ignore
@@ -118,6 +130,7 @@ setup(  # type: ignore
             sources=['python_bladerf/pybladerf_tools/pybladerf_scan.pyx'],
             include_dirs=['python_bladerf/pylibbladerf', 'python_bladerf/pybladerf_tools', *libbladerf_h_paths, numpy.get_include()],
             extra_compile_args=['-w'],
+            depends=PXD_DEPENDS,
             language='c++',
         ),
         Extension(  # type: ignore
@@ -125,6 +138,7 @@ setup(  # type: ignore
             sources=['python_bladerf/pybladerf_tools/pybladerf_transfer.pyx'],
             include_dirs=['python_bladerf/pylibbladerf', 'python_bladerf/pybladerf_tools', *libbladerf_h_paths, numpy.get_include()],
             extra_compile_args=['-w'],
+            depends=PXD_DEPENDS,
             language='c++',
         ),
     ],
