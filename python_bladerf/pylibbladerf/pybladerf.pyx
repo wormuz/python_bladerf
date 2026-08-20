@@ -1322,6 +1322,7 @@ cdef class PyBladerfDevice:
         # directions libbladeRF has torn down via enable_module(False).
         self.__sync_config = {}
         self.__sync_torn_down = set()
+        self.__auto_reconfig = True
 
     def __dealloc__(self):
         global global_callbacks
@@ -1679,9 +1680,26 @@ cdef class PyBladerfDevice:
             return
         if direction in self.__sync_torn_down:
             self.__sync_torn_down.discard(direction)
+            if not self.__auto_reconfig:
+                return
             cfg = self.__sync_config.get(direction)
             if cfg is not None:
                 self.pybladerf_sync_config(*cfg)
+
+    @property
+    def auto_sync_reconfig(self) -> bool:
+        """Whether re-enabling a direction repeats its last sync_config.
+
+        On by default: without it every sync_tx/sync_rx after a
+        disable/enable cycle fails with "not initialized". Turn it off to
+        measure the library's own behaviour, or to drive sync_config by
+        hand.
+        """
+        return self.__auto_reconfig
+
+    @auto_sync_reconfig.setter
+    def auto_sync_reconfig(self, value: bool) -> None:
+        self.__auto_reconfig = bool(value)
 
     def pybladerf_get_timestamp(self, direction: pybladerf_direction) -> int:
         cdef uint64_t timestamp

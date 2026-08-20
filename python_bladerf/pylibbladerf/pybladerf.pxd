@@ -108,6 +108,7 @@ cdef class PyBladerfDevice:
     # restored after libbladeRF tears it down on enable_module(False).
     cdef dict __sync_config
     cdef set __sync_torn_down
+    cdef bint __auto_reconfig
 
     cdef cbladerf.bladerf *get_ptr(self)
 
