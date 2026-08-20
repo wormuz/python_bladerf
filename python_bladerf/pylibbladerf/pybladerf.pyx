@@ -1903,6 +1903,13 @@ cdef class PyBladerfDevice:
         result = cbladerf.bladerf_get_fw_log(self.__bladerf_device, c_filename)
         raise_error('pybladerf_get_fw_log()', result)
 
+    def pybladerf_read_flash_bytes(self, address: int, count: int) -> bytes:
+        cdef bytearray buf = bytearray(count)
+        cdef unsigned char[::1] view = buf
+        result = cbladerf.bladerf_read_flash_bytes(self.__bladerf_device, &view[0], address, count)
+        raise_error('pybladerf_read_flash_bytes()', result)
+        return bytes(buf)
+
     def pybladerf_set_vctcxo_tamer_mode(self, mode: pybladerf_vctcxo_tamer_mode) -> None:
         result = cbladerf.bladerf_set_vctcxo_tamer_mode(self.__bladerf_device, mode)
         raise_error('pybladerf_set_vctcxo_tamer_mode()', result)
