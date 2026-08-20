@@ -1147,6 +1147,12 @@ cdef void *__rx_callback_SC16_Q11(cbladerf.bladerf *dev, cbladerf.bladerf_stream
             num_samples * async_data.bytes_per_sample,
         )
 
+        # Keep streaming when no callback is installed. Without this default
+        # `result` is never assigned, the read below raises UnboundLocalError
+        # inside the callback, and the stream stops on its very first buffer
+        # with state STREAM_DONE and no error reported to the caller.
+        result = 0
+
         if global_callbacks[<size_t> dev]['__rx_callback'] is not None:
             result = global_callbacks[<size_t> dev]['__rx_callback'](global_callbacks[<size_t> dev]['device'], pystream, np_buffer, num_samples)
 
@@ -1175,6 +1181,12 @@ cdef void *__rx_callback_SC8_Q7(cbladerf.bladerf *dev, cbladerf.bladerf_stream *
             buffer_ptr,
             num_samples * async_data.bytes_per_sample,
         )
+
+        # Keep streaming when no callback is installed. Without this default
+        # `result` is never assigned, the read below raises UnboundLocalError
+        # inside the callback, and the stream stops on its very first buffer
+        # with state STREAM_DONE and no error reported to the caller.
+        result = 0
 
         if global_callbacks[<size_t> dev]['__rx_callback'] is not None:
             result = global_callbacks[<size_t> dev]['__rx_callback'](global_callbacks[<size_t> dev]['device'], pystream, np_buffer, num_samples)
