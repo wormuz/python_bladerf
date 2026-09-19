@@ -1742,17 +1742,22 @@ cdef class PyBladerfDevice:
         raise_error('pybladerf_get_timestamp()', result)
         return timestamp
 
-    def pybladerf_get_sample_loss_count(self, direction: pybladerf_direction) -> int:
-        '''Samples the FPGA itself dropped, per direction.
+    def pybladerf_get_loss_event_count(self, direction: pybladerf_direction) -> int:
+        '''Loss EPISODES the FPGA counted, per direction.
+
+        Episodes, not samples: an unbroken run of overflow increments this
+        once however long it lasts. Do not scale it into a sample count.
 
         Not the same as the OVERRUN metadata flag: that one is computed on
         the host from USB queue state and never reads the fabric, so a loss
-        the FPGA absorbed on its own leaves it clear. Free-running and
-        monotonic, cleared only by a fabric reset -- take differences.
+        the FPGA absorbed on its own leaves it clear.
+
+        Cleared by enable_module(True) -- a difference across an enable
+        boundary is meaningless. Monotonic within one enabled session.
         '''
         cdef uint64_t count
-        result = cbladerf.bladerf_get_sample_loss_count(self.__bladerf_device, direction, &count)
-        raise_error('pybladerf_get_sample_loss_count()', result)
+        result = cbladerf.bladerf_get_loss_event_count(self.__bladerf_device, direction, &count)
+        raise_error('pybladerf_get_loss_event_count()', result)
         return count
 
     def pybladerf_sync_config(self, layout: pybladerf_channel_layout, data_format: pybladerf_format, num_buffers: int, buffer_size: int, num_transfers: int, stream_timeout: int) -> None:
