@@ -1460,6 +1460,29 @@ cdef class PyBladerfDevice:
         raise_error('pybladerf_get_gain()', result)
         return gain
 
+    def pybladerf_get_rfic_register(self, address: int) -> int:
+        """Read-only читання RFIC-регістра (`bladerf_get_rfic_register`).
+
+        RFIC-HEALTH-001B: BBPLL lock (0x05E), RX/TX RF PLL lock
+        (0x247/0x287), RX/TX RF PLL cal done (0x244/0x284). Це САМЕ
+        read-only виклик — не змінює стан RFIC (на відміну від
+        `pybladerf_set_rfic_register`, який тут навмисно НЕ обгорнутий:
+        write-шлях лишається окремим рішенням, не випадковим побічним
+        ефектом наявності read-обгортки).
+        """
+        cdef uint8_t val
+        result = cbladerf.bladerf_get_rfic_register(
+            self.__bladerf_device, address, &val)
+        raise_error('pybladerf_get_rfic_register()', result)
+        return val
+
+    def pybladerf_get_rfic_temperature(self) -> float:
+        cdef float val
+        result = cbladerf.bladerf_get_rfic_temperature(
+            self.__bladerf_device, &val)
+        raise_error('pybladerf_get_rfic_temperature()', result)
+        return val
+
     def pybladerf_set_gain_mode(self, channel: int, mode: pybladerf_gain_mode) -> None:
         result = cbladerf.bladerf_set_gain_mode(self.__bladerf_device, channel, mode)
         raise_error('pybladerf_set_gain_mode()', result)
@@ -1718,6 +1741,19 @@ cdef class PyBladerfDevice:
         result = cbladerf.bladerf_get_timestamp(self.__bladerf_device, direction, &timestamp)
         raise_error('pybladerf_get_timestamp()', result)
         return timestamp
+
+    def pybladerf_get_sample_loss_count(self, direction: pybladerf_direction) -> int:
+        '''Samples the FPGA itself dropped, per direction.
+
+        Not the same as the OVERRUN metadata flag: that one is computed on
+        the host from USB queue state and never reads the fabric, so a loss
+        the FPGA absorbed on its own leaves it clear. Free-running and
+        monotonic, cleared only by a fabric reset -- take differences.
+        '''
+        cdef uint64_t count
+        result = cbladerf.bladerf_get_sample_loss_count(self.__bladerf_device, direction, &count)
+        raise_error('pybladerf_get_sample_loss_count()', result)
+        return count
 
     def pybladerf_sync_config(self, layout: pybladerf_channel_layout, data_format: pybladerf_format, num_buffers: int, buffer_size: int, num_transfers: int, stream_timeout: int) -> None:
         result = cbladerf.bladerf_sync_config(self.__bladerf_device, layout, data_format, <unsigned int> num_buffers, <unsigned int> buffer_size, <unsigned int> num_transfers, <unsigned int> stream_timeout)

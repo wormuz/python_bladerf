@@ -345,6 +345,7 @@ cdef extern from 'libbladeRF.h' nogil:
     int bladerf_enable_module(bladerf *dev, int ch, c_bool enable)
 
     int bladerf_get_timestamp(bladerf *dev, bladerf_direction dir, uint64_t *timestamp)
+    int bladerf_get_sample_loss_count(bladerf *dev, bladerf_direction dir, uint64_t *count)
 
     int bladerf_sync_config(bladerf *dev, bladerf_channel_layout layout, bladerf_format format, unsigned int num_buffers, unsigned int buffer_size, unsigned int num_transfers, unsigned int stream_timeout)
 
