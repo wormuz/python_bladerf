@@ -1476,6 +1476,55 @@ cdef class PyBladerfDevice:
         raise_error('pybladerf_get_rfic_register()', result)
         return val
 
+    def pybladerf_rx_transition_begin(self, channel: int, frequency_hz: int,
+                                      required_events_mask: int,
+                                      timeout_ms: int,
+                                      require_rx_data_valid: bool = True) -> int:
+        """ADR-0207 BLADE_RF_EVENT_DRIVEN_RF_STATE_001: event-driven RX
+        retune. Виконує реальний `bladerf_set_frequency()` (той самий
+        host-mode шлях, що й завжди), потім арм'ує спостереження за
+        RF-подіями. Повертає `transaction_id` для
+        `pybladerf_rx_transition_wait()` -- НЕ блокує сам по собі."""
+        cdef cbladerf.bladerf_rx_transition_request request
+        cdef uint32_t transaction_id
+
+        request.target_frequency_hz = frequency_hz
+        request.required_events_mask = required_events_mask
+        request.timeout_ms = timeout_ms
+        request.require_rx_data_valid = require_rx_data_valid
+
+        result = cbladerf.bladerf_rx_transition_begin(
+            self.__bladerf_device, channel, &request, &transaction_id)
+        raise_error('pybladerf_rx_transition_begin()', result)
+        return transaction_id
+
+    def pybladerf_rx_transition_wait(self, transaction_id: int,
+                                     timeout_ms: int) -> dict:
+        """Блокує до підтвердження required-подій, timeout чи помилки.
+        `BLADERF_ERR_TIMEOUT` -- явний провал (`RF_STATE_TIMEOUT`),
+        НІКОЛИ не трактувати як "ймовірно валідні дані" (ADR §Заборонений
+        wait). Повертає останню подію як dict (host_monotonic_ns,
+        fpga_state, event_type, error_code, etc)."""
+        cdef cbladerf.bladerf_rf_event final_event
+
+        result = cbladerf.bladerf_rx_transition_wait(
+            self.__bladerf_device, transaction_id, &final_event, timeout_ms)
+        raise_error('pybladerf_rx_transition_wait()', result)
+
+        return {
+            'host_monotonic_ns': final_event.host_monotonic_ns,
+            'fpga_timestamp': final_event.fpga_timestamp,
+            'transaction_id': final_event.transaction_id,
+            'epoch_id': final_event.epoch_id,
+            'requested_rx_lo_hz': final_event.requested_rx_lo_hz,
+            'readback_rx_lo_hz': final_event.readback_rx_lo_hz,
+            'rfic_status': final_event.rfic_status,
+            'fpga_state': int(final_event.fpga_state),
+            'event_type': int(final_event.event_type),
+            'flags': final_event.flags,
+            'error_code': final_event.error_code,
+        }
+
     def pybladerf_get_rfic_temperature(self) -> float:
         cdef float val
         result = cbladerf.bladerf_get_rfic_temperature(

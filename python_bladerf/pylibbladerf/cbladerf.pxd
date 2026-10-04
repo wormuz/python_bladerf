@@ -545,6 +545,62 @@ cdef extern from 'libbladeRF.h' nogil:
 
     const char *bladerf_strerror(int error)
 
+    # ADR-0207 BLADE_RF_EVENT_DRIVEN_RF_STATE_001
+    ctypedef enum bladerf_rf_state:
+        BLADERF_RF_STATE_IDLE
+        BLADERF_RF_STATE_CONFIG_PENDING
+        BLADERF_RF_STATE_SPI_PROGRAMMING
+        BLADERF_RF_STATE_PLL_ACQUIRING
+        BLADERF_RF_STATE_PLL_LOCKED
+        BLADERF_RF_STATE_CALIBRATING
+        BLADERF_RF_STATE_RX_PATH_ARMING
+        BLADERF_RF_STATE_RX_DATA_INVALID
+        BLADERF_RF_STATE_RX_DATA_VALID
+        BLADERF_RF_STATE_ERROR
+
+    ctypedef enum bladerf_rf_event_type:
+        BLADERF_RF_EVT_CONFIG_ACCEPTED
+        BLADERF_RF_EVT_SPI_DONE
+        BLADERF_RF_EVT_RX_PLL_LOCKED
+        BLADERF_RF_EVT_ENSM_RX
+        BLADERF_RF_EVT_RX_BBDC_CAL_DONE
+        BLADERF_RF_EVT_RX_RFDC_CAL_DONE
+        BLADERF_RF_EVT_RX_QUAD_CAL_DONE
+        BLADERF_RF_EVT_RX_DATAPATH_ARMED
+        BLADERF_RF_EVT_RX_EPOCH_INVALID
+        BLADERF_RF_EVT_RX_EPOCH_VALID
+        BLADERF_RF_EVT_ERROR
+
+    const uint32_t BLADERF_RF_REQUIRE_PLL_LOCKED
+    const uint32_t BLADERF_RF_REQUIRE_ENSM_RX
+    const uint32_t BLADERF_RF_REQUIRE_DATAPATH_ARMED
+    const uint32_t BLADERF_RF_REQUIRE_EPOCH_VALID
+
+    cdef struct bladerf_rf_event:
+        uint64_t host_monotonic_ns
+        uint64_t fpga_timestamp
+        uint32_t transaction_id
+        uint32_t epoch_id
+        uint64_t requested_rx_lo_hz
+        uint64_t readback_rx_lo_hz
+        uint32_t rfic_status
+        bladerf_rf_state fpga_state
+        bladerf_rf_event_type event_type
+        uint32_t flags
+        int32_t error_code
+
+    cdef struct bladerf_rx_transition_request:
+        uint64_t target_frequency_hz
+        uint32_t required_events_mask
+        uint32_t timeout_ms
+        c_bool require_rx_data_valid
+
+    int bladerf_rx_transition_begin(bladerf *dev, int ch,
+        const bladerf_rx_transition_request *request, uint32_t *transaction_id)
+
+    int bladerf_rx_transition_wait(bladerf *dev, uint32_t transaction_id,
+        bladerf_rf_event *final_event, uint32_t timeout_ms)
+
 cdef extern from 'bladeRF2.h' nogil:
     int bladerf_get_bias_tee(bladerf *dev, int ch, c_bool *enable)
 
