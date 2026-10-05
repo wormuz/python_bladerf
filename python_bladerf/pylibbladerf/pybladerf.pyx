@@ -784,6 +784,8 @@ cdef class pybladerf_metadata:
                  actual_count: int | None = None) -> None:
 
         self.__bladerf_metadata = <cbladerf.bladerf_metadata*> malloc(sizeof(cbladerf.bladerf_metadata))
+        if self.__bladerf_metadata != NULL:
+            memset(self.__bladerf_metadata, 0, sizeof(cbladerf.bladerf_metadata))
 
         self.timestamp = timestamp
         self.flags = flags
@@ -834,6 +836,14 @@ cdef class pybladerf_metadata:
         def __set__(self, value: int | None) -> None:
             if value is not None and self.__bladerf_metadata != NULL:
                 self.__bladerf_metadata[0].actual_count = <unsigned int> value
+
+    property rx_epoch_id:
+        """FPGA RX epoch ID for epoch-tagged sample-META streams, or None."""
+        def __get__(self) -> int | None:
+            if (self.__bladerf_metadata != NULL and
+                    self.__bladerf_metadata[0].rx_epoch_id_valid != 0):
+                return self.__bladerf_metadata[0].rx_epoch_id
+            return None
 
     cdef cbladerf.bladerf_metadata *get_ptr(self):
         return self.__bladerf_metadata

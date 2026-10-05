@@ -1044,6 +1044,11 @@ class pybladerf_metadata:
         '''
         ...
 
+    @property
+    def rx_epoch_id(self) -> int | None:
+        '''FPGA RX epoch ID for epoch-tagged sample-META streams, or None.'''
+        ...
+
 class pybladerf_rf_switch_config:
     '''RF switch configuration structure'''
 

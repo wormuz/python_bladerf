@@ -336,7 +336,9 @@ cdef extern from 'libbladeRF.h' nogil:
         uint32_t flags
         uint32_t status
         unsigned int actual_count
-        uint8_t reserved[32]
+        uint8_t rx_epoch_id
+        uint8_t rx_epoch_id_valid
+        uint8_t reserved[30]
 
     int bladerf_interleave_stream_buffer(bladerf_channel_layout layout, bladerf_format format, unsigned int buffer_size, void *samples)
 
