@@ -5,6 +5,7 @@ from python_bladerf.pylibbladerf.pybladerf import (
     _rf_event_validity_fields,
     _rf_event_name,
     RF_WITHHELD_TIMESTAMP_DISCONTINUITY,
+    RF_WITHHELD_SHORT_TRANSFER,
 )
 
 
@@ -82,4 +83,8 @@ def test_timestamp_discontinuity_reason_is_public():
     assert _rf_event_validity_fields(22, RF_WITHHELD_TIMESTAMP_DISCONTINUITY) == {
         "iq_valid": False,
         "withheld_reason": "timestamp_discontinuity",
+    }
+    assert _rf_event_validity_fields(22, RF_WITHHELD_SHORT_TRANSFER) == {
+        "iq_valid": False,
+        "withheld_reason": "short_transfer",
     }

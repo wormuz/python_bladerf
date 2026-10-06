@@ -610,6 +610,7 @@ cdef extern from 'libbladeRF.h' nogil:
     const uint32_t BLADERF_RF_WITHHELD_EPOCH_UNCERTIFIED
     const uint32_t BLADERF_RF_WITHHELD_EPOCH_OR_TIMESTAMP_MISMATCH
     const uint32_t BLADERF_RF_WITHHELD_TIMESTAMP_DISCONTINUITY
+    const uint32_t BLADERF_RF_WITHHELD_SHORT_TRANSFER
 
     cdef struct bladerf_rf_event:
         uint64_t host_monotonic_ns

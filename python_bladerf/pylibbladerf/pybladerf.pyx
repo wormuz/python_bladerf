@@ -50,6 +50,7 @@ RF_WITHHELD_EPOCH_OR_TIMESTAMP_MISMATCH = (
     cbladerf.BLADERF_RF_WITHHELD_EPOCH_OR_TIMESTAMP_MISMATCH)
 RF_WITHHELD_TIMESTAMP_DISCONTINUITY = (
     cbladerf.BLADERF_RF_WITHHELD_TIMESTAMP_DISCONTINUITY)
+RF_WITHHELD_SHORT_TRANSFER = cbladerf.BLADERF_RF_WITHHELD_SHORT_TRANSFER
 
 
 def _rf_event_validity_fields(event_type: int, flags: int) -> dict:
@@ -59,6 +60,7 @@ def _rf_event_validity_fields(event_type: int, flags: int) -> dict:
         RF_WITHHELD_EPOCH_UNCERTIFIED: 'epoch_uncertified',
         RF_WITHHELD_EPOCH_OR_TIMESTAMP_MISMATCH: 'epoch_or_timestamp_mismatch',
         RF_WITHHELD_TIMESTAMP_DISCONTINUITY: 'timestamp_discontinuity',
+        RF_WITHHELD_SHORT_TRANSFER: 'short_transfer',
     }
     return {'iq_valid': False, 'withheld_reason': reasons.get(flags, 'unknown')}
 
