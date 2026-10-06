@@ -2,7 +2,9 @@ from python_bladerf.pylibbladerf.pybladerf import (
     PyBladerfDevice,
     _dispatch_rf_event_batch,
     _dispatch_rx_data_withheld,
+    _rf_event_validity_fields,
     _rf_event_name,
+    RF_WITHHELD_TIMESTAMP_DISCONTINUITY,
 )
 
 
@@ -73,3 +75,11 @@ def test_unsupported_format_has_public_event_name():
     assert _rf_event_name(21) == "rx_format_unsupported"
     assert _rf_event_name(22) == "rx_data_withheld"
     assert _rf_event_name(23) == "rx_epoch_abort_failed"
+
+
+def test_timestamp_discontinuity_reason_is_public():
+    assert RF_WITHHELD_TIMESTAMP_DISCONTINUITY == 1 << 2
+    assert _rf_event_validity_fields(22, RF_WITHHELD_TIMESTAMP_DISCONTINUITY) == {
+        "iq_valid": False,
+        "withheld_reason": "timestamp_discontinuity",
+    }

@@ -42,6 +42,26 @@ IF ANDROID:
 
 cdef dict global_callbacks = {}
 
+# `flags` on an `rx_data_withheld` native event is a bitmask. Export the
+# timestamp-continuity reason so Python consumers can distinguish it from an
+# epoch boundary or missing certificate.
+RF_WITHHELD_EPOCH_UNCERTIFIED = cbladerf.BLADERF_RF_WITHHELD_EPOCH_UNCERTIFIED
+RF_WITHHELD_EPOCH_OR_TIMESTAMP_MISMATCH = (
+    cbladerf.BLADERF_RF_WITHHELD_EPOCH_OR_TIMESTAMP_MISMATCH)
+RF_WITHHELD_TIMESTAMP_DISCONTINUITY = (
+    cbladerf.BLADERF_RF_WITHHELD_TIMESTAMP_DISCONTINUITY)
+
+
+def _rf_event_validity_fields(event_type: int, flags: int) -> dict:
+    if event_type != cbladerf.BLADERF_RF_EVT_RX_DATA_WITHHELD:
+        return {}
+    reasons = {
+        RF_WITHHELD_EPOCH_UNCERTIFIED: 'epoch_uncertified',
+        RF_WITHHELD_EPOCH_OR_TIMESTAMP_MISMATCH: 'epoch_or_timestamp_mismatch',
+        RF_WITHHELD_TIMESTAMP_DISCONTINUITY: 'timestamp_discontinuity',
+    }
+    return {'iq_valid': False, 'withheld_reason': reasons.get(flags, 'unknown')}
+
 def _rf_event_notifications(events, history_complete: bool,
                             after_sequence: int, observed_sequence: int) -> list:
     """Add an explicit notification when the bounded native event ring lost
@@ -1623,6 +1643,7 @@ cdef class PyBladerfDevice:
                 'event_name': _rf_event_name(event.event_type),
                 'flags': event.flags,
                 'error_code': event.error_code,
+                **_rf_event_validity_fields(event.event_type, event.flags),
             })
         return {'events': items, 'next_sequence': next_sequence,
                 'history_complete': bool(complete)}
@@ -1771,6 +1792,7 @@ cdef class PyBladerfDevice:
                 'event_type': int(event.event_type),
                 'flags': event.flags,
                 'error_code': event.error_code,
+                **_rf_event_validity_fields(event.event_type, event.flags),
             })
         return {'events': event_list,
                 'history_complete': bool(history_complete)}

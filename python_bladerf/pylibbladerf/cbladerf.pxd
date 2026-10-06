@@ -607,6 +607,9 @@ cdef extern from 'libbladeRF.h' nogil:
     const uint32_t BLADERF_RF_INVALIDATE_RX_FIR
     const uint32_t BLADERF_RF_INVALIDATE_CLOCK
     const uint32_t BLADERF_RF_STREAM_STATUS_OVERRUN
+    const uint32_t BLADERF_RF_WITHHELD_EPOCH_UNCERTIFIED
+    const uint32_t BLADERF_RF_WITHHELD_EPOCH_OR_TIMESTAMP_MISMATCH
+    const uint32_t BLADERF_RF_WITHHELD_TIMESTAMP_DISCONTINUITY
 
     cdef struct bladerf_rf_event:
         uint64_t host_monotonic_ns
