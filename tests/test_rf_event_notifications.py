@@ -1,6 +1,8 @@
 from python_bladerf.pylibbladerf.pybladerf import (
     PyBladerfDevice,
     _dispatch_rf_event_batch,
+    _dispatch_rx_data_withheld,
+    _rf_event_name,
 )
 
 
@@ -50,3 +52,22 @@ def test_dispatch_without_subscribers_does_not_consume_native_history():
     # available to an explicit rf_events_since() query later.
     device = PyBladerfDevice()
     device.pybladerf_dispatch_rf_events()
+
+
+def test_async_rx_withheld_notification_is_explicit_and_invalid():
+    received = []
+    errors = []
+    withheld = _dispatch_rx_data_withheld([received.append], errors, False)
+    withheld = _dispatch_rx_data_withheld([received.append], errors, withheld)
+    assert len(received) == 1
+    event = received[0]
+    assert event["event_name"] == "rx_data_withheld"
+    assert event["iq_valid"] is False
+    assert event["transaction_id"] == 0
+    assert errors == []
+    assert _dispatch_rx_data_withheld([received.append], errors, False)
+    assert len(received) == 2
+
+
+def test_unsupported_format_has_public_event_name():
+    assert _rf_event_name(21) == "rx_format_unsupported"

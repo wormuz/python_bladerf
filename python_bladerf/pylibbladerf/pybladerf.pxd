@@ -113,6 +113,7 @@ cdef class PyBladerfDevice:
     cdef list __rf_event_callbacks
     cdef list __rf_event_callback_errors
     cdef uint64_t __rf_event_cursor
+    cdef bint __rx_data_withheld
 
     cdef cbladerf.bladerf *get_ptr(self)
 

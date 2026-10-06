@@ -91,6 +91,44 @@ def _dispatch_rf_event_batch(callbacks, callback_errors, result,
     return notifications
 
 
+def _rx_data_withheld_notification() -> dict:
+    """Describe an async RX callback where libbladeRF withheld all IQ."""
+    return {
+        'host_monotonic_ns': None,
+        'fpga_timestamp': None,
+        'transaction_id': 0,
+        'epoch_id': 0,
+        'requested_rx_lo_hz': None,
+        'readback_rx_lo_hz': None,
+        'rfic_status': 0,
+        'fpga_state': None,
+        'event_type': None,
+        'event_name': 'rx_data_withheld',
+        'flags': 0,
+        'error_code': None,
+        'iq_valid': False,
+    }
+
+
+def _dispatch_rx_data_withheld(callbacks, callback_errors,
+                               already_withheld: bool) -> bool:
+    if not callbacks or already_withheld:
+        return already_withheld
+    _deliver_rf_event(callbacks, callback_errors,
+                      _rx_data_withheld_notification())
+    return True
+
+
+def _rf_event_name(event_type: int) -> str:
+    if event_type == cbladerf.BLADERF_RF_EVT_RX_DATA_INVALIDATED:
+        return 'rx_data_invalidated'
+    if event_type == cbladerf.BLADERF_RF_EVT_RX_STREAM_OVERRUN:
+        return 'rx_stream_overrun'
+    if event_type == cbladerf.BLADERF_RF_EVT_RX_FORMAT_UNSUPPORTED:
+        return 'rx_format_unsupported'
+    return 'rf_transition'
+
+
 def PYBLADERF_CHANNEL_RX(channel: int) -> int:
     return (((channel) << 1) | 0x0)
 
@@ -1203,7 +1241,9 @@ cdef void *__rx_callback_SC16_Q11(cbladerf.bladerf *dev, cbladerf.bladerf_stream
         # zero-sample callback is an event-only wakeup for a rejected buffer.
         device.pybladerf_dispatch_rf_events()
         if num_samples == 0:
+            device.pybladerf_dispatch_rx_data_withheld()
             return PYBLADERF_STREAM_REUSE_BUFFER
+        device.pybladerf_mark_rx_data_delivered()
 
         np_buffer = np.empty(num_samples * 2, dtype=np.int16)
         np_buffer_ptr = <uint8_t*> <uintptr_t> np_buffer.ctypes.data
@@ -1242,7 +1282,9 @@ cdef void *__rx_callback_SC8_Q7(cbladerf.bladerf *dev, cbladerf.bladerf_stream *
         device = global_callbacks[<size_t> dev]['device']
         device.pybladerf_dispatch_rf_events()
         if num_samples == 0:
+            device.pybladerf_dispatch_rx_data_withheld()
             return PYBLADERF_STREAM_REUSE_BUFFER
+        device.pybladerf_mark_rx_data_delivered()
 
         np_buffer = np.empty(num_samples * 2, dtype=np.int8)
         np_buffer_ptr = <uint8_t*> <uintptr_t> np_buffer.ctypes.data
@@ -1409,6 +1451,7 @@ cdef class PyBladerfDevice:
         self.__rf_event_callbacks = []
         self.__rf_event_callback_errors = []
         self.__rf_event_cursor = 0
+        self.__rx_data_withheld = False
 
     def __dealloc__(self):
         global global_callbacks
@@ -1573,11 +1616,7 @@ cdef class PyBladerfDevice:
                 'rfic_status': event.rfic_status,
                 'fpga_state': int(event.fpga_state),
                 'event_type': int(event.event_type),
-                'event_name': ('rx_data_invalidated'
-                               if event.event_type == cbladerf.BLADERF_RF_EVT_RX_DATA_INVALIDATED
-                               else 'rx_stream_overrun'
-                               if event.event_type == cbladerf.BLADERF_RF_EVT_RX_STREAM_OVERRUN
-                               else 'rf_transition'),
+                'event_name': _rf_event_name(event.event_type),
                 'flags': event.flags,
                 'error_code': event.error_code,
             })
@@ -1597,6 +1636,14 @@ cdef class PyBladerfDevice:
         _dispatch_rf_event_batch(self.__rf_event_callbacks,
                                  self.__rf_event_callback_errors, result,
                                  previous_cursor)
+
+    def pybladerf_dispatch_rx_data_withheld(self) -> None:
+        self.__rx_data_withheld = _dispatch_rx_data_withheld(
+            self.__rf_event_callbacks, self.__rf_event_callback_errors,
+            self.__rx_data_withheld)
+
+    def pybladerf_mark_rx_data_delivered(self) -> None:
+        self.__rx_data_withheld = False
 
     def pybladerf_get_gain(self, channel: int) -> int:
         cdef int gain
