@@ -595,6 +595,12 @@ cdef extern from 'libbladeRF.h' nogil:
         uint32_t flags
         int32_t error_code
 
+    cdef struct bladerf_rx_transition_nios_timing:
+        c_bool transaction_retained
+        c_bool nios_retune_observed
+        c_bool device_duration_valid
+        uint64_t device_duration_ticks
+
     cdef struct bladerf_rx_transition_request:
         uint64_t target_frequency_hz
         uint32_t required_events_mask
@@ -615,6 +621,9 @@ cdef extern from 'libbladeRF.h' nogil:
     int bladerf_rx_transition_get_events(bladerf *dev,
         uint32_t transaction_id, bladerf_rf_event *events, uint32_t capacity,
         uint32_t *event_count, c_bool *history_complete)
+
+    int bladerf_rx_transition_get_nios_timing(bladerf *dev,
+        uint32_t transaction_id, bladerf_rx_transition_nios_timing *timing)
 
 cdef extern from 'bladeRF2.h' nogil:
     int bladerf_get_bias_tee(bladerf *dev, int ch, c_bool *enable)

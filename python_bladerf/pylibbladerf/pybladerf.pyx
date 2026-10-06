@@ -1584,6 +1584,23 @@ cdef class PyBladerfDevice:
         return {'events': event_list,
                 'history_complete': bool(history_complete)}
 
+    def pybladerf_rx_transition_get_nios_timing(self, transaction_id: int) -> dict:
+        """Return the NIOS RX fastlock duration retained for a transaction.
+
+        `device_duration_ticks` is a raw module time-tamer delta and is
+        separate from host-monotonic USB OUT/IN event timestamps.
+        """
+        cdef cbladerf.bladerf_rx_transition_nios_timing timing
+        result = cbladerf.bladerf_rx_transition_get_nios_timing(
+            self.__bladerf_device, transaction_id, &timing)
+        raise_error('pybladerf_rx_transition_get_nios_timing()', result)
+        return {
+            'transaction_retained': bool(timing.transaction_retained),
+            'nios_retune_observed': bool(timing.nios_retune_observed),
+            'device_duration_valid': bool(timing.device_duration_valid),
+            'device_duration_ticks': timing.device_duration_ticks,
+        }
+
     def pybladerf_get_rfic_temperature(self) -> float:
         cdef float val
         result = cbladerf.bladerf_get_rfic_temperature(
