@@ -6,6 +6,10 @@ from python_bladerf.pylibbladerf.pybladerf import (
     _rf_event_name,
     RF_WITHHELD_TIMESTAMP_DISCONTINUITY,
     RF_WITHHELD_SHORT_TRANSFER,
+    RF_WITHHELD_USB_OVERFLOW,
+    RF_WITHHELD_USB_TRANSFER_ERROR,
+    RF_WITHHELD_USB_TIMEOUT,
+    RF_WITHHELD_DEVICE_LOST,
 )
 
 
@@ -88,3 +92,16 @@ def test_timestamp_discontinuity_reason_is_public():
         "iq_valid": False,
         "withheld_reason": "short_transfer",
     }
+    assert _rf_event_validity_fields(22, RF_WITHHELD_USB_OVERFLOW) == {
+        "iq_valid": False,
+        "withheld_reason": "usb_overflow",
+    }
+    for reason, name in [
+        (RF_WITHHELD_USB_TRANSFER_ERROR, "usb_transfer_error"),
+        (RF_WITHHELD_USB_TIMEOUT, "usb_timeout"),
+        (RF_WITHHELD_DEVICE_LOST, "device_lost"),
+    ]:
+        assert _rf_event_validity_fields(22, reason) == {
+            "iq_valid": False,
+            "withheld_reason": name,
+        }

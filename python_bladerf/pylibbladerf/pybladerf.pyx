@@ -51,6 +51,11 @@ RF_WITHHELD_EPOCH_OR_TIMESTAMP_MISMATCH = (
 RF_WITHHELD_TIMESTAMP_DISCONTINUITY = (
     cbladerf.BLADERF_RF_WITHHELD_TIMESTAMP_DISCONTINUITY)
 RF_WITHHELD_SHORT_TRANSFER = cbladerf.BLADERF_RF_WITHHELD_SHORT_TRANSFER
+RF_WITHHELD_USB_OVERFLOW = cbladerf.BLADERF_RF_WITHHELD_USB_OVERFLOW
+RF_WITHHELD_USB_TRANSFER_ERROR = (
+    cbladerf.BLADERF_RF_WITHHELD_USB_TRANSFER_ERROR)
+RF_WITHHELD_USB_TIMEOUT = cbladerf.BLADERF_RF_WITHHELD_USB_TIMEOUT
+RF_WITHHELD_DEVICE_LOST = cbladerf.BLADERF_RF_WITHHELD_DEVICE_LOST
 
 
 def _rf_event_validity_fields(event_type: int, flags: int) -> dict:
@@ -61,6 +66,10 @@ def _rf_event_validity_fields(event_type: int, flags: int) -> dict:
         RF_WITHHELD_EPOCH_OR_TIMESTAMP_MISMATCH: 'epoch_or_timestamp_mismatch',
         RF_WITHHELD_TIMESTAMP_DISCONTINUITY: 'timestamp_discontinuity',
         RF_WITHHELD_SHORT_TRANSFER: 'short_transfer',
+        RF_WITHHELD_USB_OVERFLOW: 'usb_overflow',
+        RF_WITHHELD_USB_TRANSFER_ERROR: 'usb_transfer_error',
+        RF_WITHHELD_USB_TIMEOUT: 'usb_timeout',
+        RF_WITHHELD_DEVICE_LOST: 'device_lost',
     }
     return {'iq_valid': False, 'withheld_reason': reasons.get(flags, 'unknown')}
 
