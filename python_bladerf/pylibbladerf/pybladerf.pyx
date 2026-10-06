@@ -2221,6 +2221,7 @@ cdef class PyBladerfDevice:
 
         with nogil:
             result = cbladerf.bladerf_start_stream(c_stream, c_layout)
+        self.pybladerf_dispatch_rf_events()
         raise_error('pybladerf_start_stream()', result)
 
     def pybladerf_submit_stream_buffer(self, stream: pybladerf_stream, buffer: np.ndarray[Any, Any], timeout_ms: int) -> None:
