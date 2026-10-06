@@ -45,6 +45,20 @@ cdef dict global_callbacks = {}
 # `flags` on an `rx_data_withheld` native event is a bitmask. Export the
 # timestamp-continuity reason so Python consumers can distinguish it from an
 # epoch boundary or missing certificate.
+RF_INVALIDATE_FREQUENCY = cbladerf.BLADERF_RF_INVALIDATE_FREQUENCY
+RF_INVALIDATE_SAMPLE_RATE = cbladerf.BLADERF_RF_INVALIDATE_SAMPLE_RATE
+RF_INVALIDATE_BANDWIDTH = cbladerf.BLADERF_RF_INVALIDATE_BANDWIDTH
+RF_INVALIDATE_GAIN = cbladerf.BLADERF_RF_INVALIDATE_GAIN
+RF_INVALIDATE_GAIN_MODE = cbladerf.BLADERF_RF_INVALIDATE_GAIN_MODE
+RF_INVALIDATE_RF_PORT = cbladerf.BLADERF_RF_INVALIDATE_RF_PORT
+RF_INVALIDATE_CORRECTION = cbladerf.BLADERF_RF_INVALIDATE_CORRECTION
+RF_INVALIDATE_RX_MUX = cbladerf.BLADERF_RF_INVALIDATE_RX_MUX
+RF_INVALIDATE_LOOPBACK = cbladerf.BLADERF_RF_INVALIDATE_LOOPBACK
+RF_INVALIDATE_MODULE = cbladerf.BLADERF_RF_INVALIDATE_MODULE
+RF_INVALIDATE_RFIC_REG = cbladerf.BLADERF_RF_INVALIDATE_RFIC_REG
+RF_INVALIDATE_RX_FIR = cbladerf.BLADERF_RF_INVALIDATE_RX_FIR
+RF_INVALIDATE_CLOCK = cbladerf.BLADERF_RF_INVALIDATE_CLOCK
+RF_INVALIDATE_STREAM_CONFIG = cbladerf.BLADERF_RF_INVALIDATE_STREAM_CONFIG
 RF_WITHHELD_EPOCH_UNCERTIFIED = cbladerf.BLADERF_RF_WITHHELD_EPOCH_UNCERTIFIED
 RF_WITHHELD_EPOCH_OR_TIMESTAMP_MISMATCH = (
     cbladerf.BLADERF_RF_WITHHELD_EPOCH_OR_TIMESTAMP_MISMATCH)
@@ -67,6 +81,20 @@ def _rf_invalidation_reason(event_type: int, flags: int):
     if event_type != cbladerf.BLADERF_RF_EVT_RX_DATA_INVALIDATED:
         return None
     reasons = {
+        RF_INVALIDATE_FREQUENCY: 'frequency',
+        RF_INVALIDATE_SAMPLE_RATE: 'sample_rate',
+        RF_INVALIDATE_BANDWIDTH: 'bandwidth',
+        RF_INVALIDATE_GAIN: 'gain',
+        RF_INVALIDATE_GAIN_MODE: 'gain_mode',
+        RF_INVALIDATE_RF_PORT: 'rf_port',
+        RF_INVALIDATE_CORRECTION: 'correction',
+        RF_INVALIDATE_RX_MUX: 'rx_mux',
+        RF_INVALIDATE_LOOPBACK: 'loopback',
+        RF_INVALIDATE_MODULE: 'module',
+        RF_INVALIDATE_RFIC_REG: 'rfic_register',
+        RF_INVALIDATE_RX_FIR: 'rx_fir',
+        RF_INVALIDATE_CLOCK: 'clock',
+        RF_INVALIDATE_STREAM_CONFIG: 'stream_config',
         RF_INVALIDATE_TUNING_MODE: 'tuning_mode',
         RF_INVALIDATE_DEVICE_RESET: 'device_reset',
         RF_INVALIDATE_FPGA_RELOAD: 'fpga_reload',

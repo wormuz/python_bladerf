@@ -1,7 +1,21 @@
 from python_bladerf.pylibbladerf.pybladerf import (
+    RF_INVALIDATE_BANDWIDTH,
     RF_INVALIDATE_BOOTLOADER,
+    RF_INVALIDATE_CLOCK,
+    RF_INVALIDATE_CORRECTION,
     RF_INVALIDATE_DEVICE_RESET,
     RF_INVALIDATE_FPGA_RELOAD,
+    RF_INVALIDATE_FREQUENCY,
+    RF_INVALIDATE_GAIN,
+    RF_INVALIDATE_GAIN_MODE,
+    RF_INVALIDATE_LOOPBACK,
+    RF_INVALIDATE_MODULE,
+    RF_INVALIDATE_RF_PORT,
+    RF_INVALIDATE_RFIC_REG,
+    RF_INVALIDATE_RX_FIR,
+    RF_INVALIDATE_RX_MUX,
+    RF_INVALIDATE_SAMPLE_RATE,
+    RF_INVALIDATE_STREAM_CONFIG,
     RF_INVALIDATE_TUNING_MODE,
     RF_WITHHELD_DEVICE_LOST,
     RF_WITHHELD_SHORT_TRANSFER,
@@ -19,12 +33,31 @@ from python_bladerf.pylibbladerf.pybladerf import (
 )
 
 
-def test_rf_invalidation_reason_names_cover_owner_and_device_reset():
+def test_rf_invalidation_reason_names_cover_every_public_reason():
     # RX_DATA_INVALIDATED is event type 19 in the public libbladeRF API.
-    assert _rf_invalidation_reason(19, RF_INVALIDATE_TUNING_MODE) == "tuning_mode"
-    assert _rf_invalidation_reason(19, RF_INVALIDATE_DEVICE_RESET) == "device_reset"
-    assert _rf_invalidation_reason(19, RF_INVALIDATE_FPGA_RELOAD) == "fpga_reload"
-    assert _rf_invalidation_reason(19, RF_INVALIDATE_BOOTLOADER) == "bootloader"
+    reasons = [
+        (RF_INVALIDATE_FREQUENCY, "frequency"),
+        (RF_INVALIDATE_SAMPLE_RATE, "sample_rate"),
+        (RF_INVALIDATE_BANDWIDTH, "bandwidth"),
+        (RF_INVALIDATE_GAIN, "gain"),
+        (RF_INVALIDATE_GAIN_MODE, "gain_mode"),
+        (RF_INVALIDATE_RF_PORT, "rf_port"),
+        (RF_INVALIDATE_CORRECTION, "correction"),
+        (RF_INVALIDATE_RX_MUX, "rx_mux"),
+        (RF_INVALIDATE_LOOPBACK, "loopback"),
+        (RF_INVALIDATE_MODULE, "module"),
+        (RF_INVALIDATE_RFIC_REG, "rfic_register"),
+        (RF_INVALIDATE_RX_FIR, "rx_fir"),
+        (RF_INVALIDATE_CLOCK, "clock"),
+        (RF_INVALIDATE_STREAM_CONFIG, "stream_config"),
+        (RF_INVALIDATE_TUNING_MODE, "tuning_mode"),
+        (RF_INVALIDATE_DEVICE_RESET, "device_reset"),
+        (RF_INVALIDATE_FPGA_RELOAD, "fpga_reload"),
+        (RF_INVALIDATE_BOOTLOADER, "bootloader"),
+    ]
+    assert len({flag for flag, _ in reasons}) == len(reasons)
+    assert all(_rf_invalidation_reason(19, flag) == name
+               for flag, name in reasons)
     assert _rf_invalidation_reason(20, RF_INVALIDATE_DEVICE_RESET) is None
 
 
