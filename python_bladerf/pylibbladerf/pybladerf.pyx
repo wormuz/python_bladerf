@@ -42,6 +42,42 @@ IF ANDROID:
 
 cdef dict global_callbacks = {}
 
+def _rf_event_notifications(events, history_complete: bool,
+                            after_sequence: int, observed_sequence: int) -> list:
+    """Add an explicit notification when the bounded native event ring lost
+    entries. Callbacks must learn that their RF state history is incomplete;
+    a side-channel error list alone is too easy for consumers to miss."""
+    notifications = []
+    if not history_complete:
+        notifications.append({
+            'host_monotonic_ns': None,
+            'fpga_timestamp': None,
+            'transaction_id': 0,
+            'epoch_id': 0,
+            'requested_rx_lo_hz': None,
+            'readback_rx_lo_hz': None,
+            'rfic_status': 0,
+            'fpga_state': None,
+            'event_type': None,
+            'event_name': 'rf_event_history_lost',
+            'flags': 0,
+            'error_code': None,
+            'history_complete': False,
+            'after_sequence': int(after_sequence),
+            'observed_through_sequence': int(observed_sequence),
+        })
+    notifications.extend(events)
+    return notifications
+
+
+def _deliver_rf_event(callbacks, callback_errors, event) -> None:
+    for callback in list(callbacks):
+        try:
+            callback(event)
+        except Exception as exc:
+            callback_errors.append({'event': event, 'error': repr(exc)})
+
+
 def PYBLADERF_CHANNEL_RX(channel: int) -> int:
     return (((channel) << 1) | 0x0)
 
@@ -1524,18 +1560,18 @@ cdef class PyBladerfDevice:
                 'history_complete': bool(complete)}
 
     def pybladerf_dispatch_rf_events(self) -> None:
+        previous_cursor = self.__rf_event_cursor
         result = self.pybladerf_rf_events_since()
         self.__rf_event_cursor = result['next_sequence']
         if not result['history_complete']:
             self.__rf_event_callback_errors.append(
                 {'error': 'RF event history overrun', 'history_complete': False})
-        for event in result['events']:
-            for callback in list(self.__rf_event_callbacks):
-                try:
-                    callback(event)
-                except Exception as exc:
-                    self.__rf_event_callback_errors.append(
-                        {'event': event, 'error': repr(exc)})
+        notifications = _rf_event_notifications(
+            result['events'], result['history_complete'], previous_cursor,
+            result['next_sequence'])
+        for event in notifications:
+            _deliver_rf_event(self.__rf_event_callbacks,
+                              self.__rf_event_callback_errors, event)
 
     def pybladerf_get_gain(self, channel: int) -> int:
         cdef int gain

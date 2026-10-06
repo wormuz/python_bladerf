@@ -1309,6 +1309,23 @@ class PyBladerfDevice:
         '''Get the number of RX or TX channels supported by device'''
         ...
 
+    def pybladerf_add_rf_event_callback(self, callback: Callable[[dict[str, Any]], Any]) -> None:
+        '''Register a callback for RF transitions, RX invalidations,
+        stream overruns, and rf_event_history_lost notifications.'''
+        ...
+
+    def pybladerf_remove_rf_event_callback(self, callback: Callable[[dict[str, Any]], Any]) -> None:
+        '''Remove a previously registered RF event callback.'''
+        ...
+
+    def pybladerf_rf_events_since(self, after_sequence: int | None = None) -> dict[str, Any]:
+        '''Return retained RF events and history_complete status from a cursor.'''
+        ...
+
+    def pybladerf_get_rf_event_callback_errors(self, clear: bool = False) -> list[dict[str, Any]]:
+        '''Return callback exceptions and event-history-loss diagnostics.'''
+        ...
+
     def pybladerf_set_gain(self, channel: int, gain: int) -> None:
         '''
         Set overall system gain
