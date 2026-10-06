@@ -78,6 +78,19 @@ def _deliver_rf_event(callbacks, callback_errors, event) -> None:
             callback_errors.append({'event': event, 'error': repr(exc)})
 
 
+def _dispatch_rf_event_batch(callbacks, callback_errors, result,
+                             previous_cursor: int) -> list:
+    if not result['history_complete']:
+        callback_errors.append(
+            {'error': 'RF event history overrun', 'history_complete': False})
+    notifications = _rf_event_notifications(
+        result['events'], result['history_complete'], previous_cursor,
+        result['next_sequence'])
+    for event in notifications:
+        _deliver_rf_event(callbacks, callback_errors, event)
+    return notifications
+
+
 def PYBLADERF_CHANNEL_RX(channel: int) -> int:
     return (((channel) << 1) | 0x0)
 
@@ -1563,15 +1576,9 @@ cdef class PyBladerfDevice:
         previous_cursor = self.__rf_event_cursor
         result = self.pybladerf_rf_events_since()
         self.__rf_event_cursor = result['next_sequence']
-        if not result['history_complete']:
-            self.__rf_event_callback_errors.append(
-                {'error': 'RF event history overrun', 'history_complete': False})
-        notifications = _rf_event_notifications(
-            result['events'], result['history_complete'], previous_cursor,
-            result['next_sequence'])
-        for event in notifications:
-            _deliver_rf_event(self.__rf_event_callbacks,
-                              self.__rf_event_callback_errors, event)
+        _dispatch_rf_event_batch(self.__rf_event_callbacks,
+                                 self.__rf_event_callback_errors, result,
+                                 previous_cursor)
 
     def pybladerf_get_gain(self, channel: int) -> int:
         cdef int gain
