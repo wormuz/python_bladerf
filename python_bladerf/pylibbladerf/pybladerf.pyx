@@ -128,6 +128,8 @@ def _rf_event_name(event_type: int) -> str:
         return 'rx_format_unsupported'
     if event_type == cbladerf.BLADERF_RF_EVT_RX_DATA_WITHHELD:
         return 'rx_data_withheld'
+    if event_type == cbladerf.BLADERF_RF_EVT_RX_EPOCH_ABORT_FAILED:
+        return 'rx_epoch_abort_failed'
     return 'rf_transition'
 
 
