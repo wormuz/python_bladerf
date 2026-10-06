@@ -1787,6 +1787,7 @@ cdef class PyBladerfDevice:
 
     def pybladerf_select_band(self, channel: int, frequency: int) -> None:
         result = cbladerf.bladerf_select_band(self.__bladerf_device, channel, <uint64_t> frequency)
+        self.pybladerf_dispatch_rf_events()
         raise_error('pybladerf_select_band()', result)
 
     def pybladerf_set_frequency(self, channel: int, frequency: int) -> None:
@@ -2250,17 +2251,6 @@ cdef class PyBladerfDevice:
         self.pybladerf_dispatch_rf_events()
         raise_error('pybladerf_set_bias_tee()', result)
 
-    def pybladerf_get_rfic_register(self, address: int) -> int:
-        cdef uint8_t value
-        result = cbladerf.bladerf_get_rfic_register(self.__bladerf_device, <uint16_t> address, &value)
-        raise_error('pybladerf_get_rfic_register()', result)
-        return value
-
-    def pybladerf_set_rfic_register(self, address: int, value: int) -> None:
-        result = cbladerf.bladerf_set_rfic_register(self.__bladerf_device, <uint16_t> address, <uint8_t> value)
-        self.pybladerf_dispatch_rf_events()
-        raise_error('pybladerf_set_rfic_register()', result)
-
     def pybladerf_config_gpio_read(self) -> int:
         """Read the FPGA configuration GPIO register.
 
@@ -2306,6 +2296,7 @@ cdef class PyBladerfDevice:
     def pybladerf_set_rfic_register(self, address: int, value: int) -> None:
         """Write one RFIC (AD9361) register over SPI."""
         result = cbladerf.bladerf_set_rfic_register(self.__bladerf_device, <uint16_t> address, <uint8_t> value)
+        self.pybladerf_dispatch_rf_events()
         raise_error('pybladerf_set_rfic_register()', result)
 
     def pybladerf_get_rfic_temperature(self) -> float:
