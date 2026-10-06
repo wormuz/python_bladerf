@@ -358,6 +358,7 @@ cdef extern from 'libbladeRF.h' nogil:
     int bladerf_sync_rx(bladerf *dev, void *samples, unsigned int num_samples, bladerf_metadata *metadata, unsigned int timeout_ms)
 
     void *BLADERF_STREAM_NO_DATA
+    void *BLADERF_STREAM_REUSE_BUFFER
 
     ctypedef void *(*bladerf_stream_cb)(bladerf *dev, bladerf_stream *stream, bladerf_metadata *meta, void *samples, size_t num_samples, void *user_data)
 

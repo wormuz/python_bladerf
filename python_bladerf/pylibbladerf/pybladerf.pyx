@@ -121,6 +121,7 @@ PYBLADERF_META_FLAG_RX_HW_MINIEXP2 = (1 << 17)
 
 cdef void *PYBLADERF_STREAM_SHUTDOWN = <void*> NULL
 cdef void *PYBLADERF_STREAM_NO_DATA = <void*> cbladerf.BLADERF_STREAM_NO_DATA
+cdef void *PYBLADERF_STREAM_REUSE_BUFFER = <void*> cbladerf.BLADERF_STREAM_REUSE_BUFFER
 
 PYBLADERF_TRIGGER_REG_ARM = <uint8_t> (1 << 0)
 PYBLADERF_TRIGGER_REG_FIRE = <uint8_t> (1 << 1)
@@ -1202,7 +1203,7 @@ cdef void *__rx_callback_SC16_Q11(cbladerf.bladerf *dev, cbladerf.bladerf_stream
         # zero-sample callback is an event-only wakeup for a rejected buffer.
         device.pybladerf_dispatch_rf_events()
         if num_samples == 0:
-            return pystream.get_next_buffer_ptr()
+            return PYBLADERF_STREAM_REUSE_BUFFER
 
         np_buffer = np.empty(num_samples * 2, dtype=np.int16)
         np_buffer_ptr = <uint8_t*> <uintptr_t> np_buffer.ctypes.data
@@ -1241,7 +1242,7 @@ cdef void *__rx_callback_SC8_Q7(cbladerf.bladerf *dev, cbladerf.bladerf_stream *
         device = global_callbacks[<size_t> dev]['device']
         device.pybladerf_dispatch_rf_events()
         if num_samples == 0:
-            return pystream.get_next_buffer_ptr()
+            return PYBLADERF_STREAM_REUSE_BUFFER
 
         np_buffer = np.empty(num_samples * 2, dtype=np.int8)
         np_buffer_ptr = <uint8_t*> <uintptr_t> np_buffer.ctypes.data
