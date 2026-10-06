@@ -126,6 +126,8 @@ def _rf_event_name(event_type: int) -> str:
         return 'rx_stream_overrun'
     if event_type == cbladerf.BLADERF_RF_EVT_RX_FORMAT_UNSUPPORTED:
         return 'rx_format_unsupported'
+    if event_type == cbladerf.BLADERF_RF_EVT_RX_DATA_WITHHELD:
+        return 'rx_data_withheld'
     return 'rf_transition'
 
 
@@ -1633,6 +1635,11 @@ cdef class PyBladerfDevice:
         previous_cursor = self.__rf_event_cursor
         result = self.pybladerf_rf_events_since()
         self.__rf_event_cursor = result['next_sequence']
+        if any(event['event_name'] == 'rx_data_withheld'
+               for event in result['events']):
+            # The native event is richer and durable; do not also synthesize
+            # the generic event-only callback notice for the same withheld run.
+            self.__rx_data_withheld = True
         _dispatch_rf_event_batch(self.__rf_event_callbacks,
                                  self.__rf_event_callback_errors, result,
                                  previous_cursor)

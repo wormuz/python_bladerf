@@ -71,3 +71,4 @@ def test_async_rx_withheld_notification_is_explicit_and_invalid():
 
 def test_unsupported_format_has_public_event_name():
     assert _rf_event_name(21) == "rx_format_unsupported"
+    assert _rf_event_name(22) == "rx_data_withheld"
