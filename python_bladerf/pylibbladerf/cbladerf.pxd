@@ -48,6 +48,8 @@ cdef extern from 'bladerf_stream.h' nogil:
 
 cdef extern from 'libbladeRF.h' nogil:
 
+    const int BLADERF_ERR_MEM
+
     cdef struct bladerf:
         pass
 
@@ -576,11 +578,31 @@ cdef extern from 'libbladeRF.h' nogil:
         BLADERF_RF_EVT_LO_READBACK_MATCH
         BLADERF_RF_EVT_RX_FIRST_VALID_HOST_DATA
         BLADERF_RF_EVT_SPI_WRITE_BEGIN
+        BLADERF_RF_EVT_CONTROL_PLANE_CONFIRMED
+        BLADERF_RF_EVT_NIOS_RETUNE_BEGIN
+        BLADERF_RF_EVT_NIOS_RETUNE_USB_OUT_DONE
+        BLADERF_RF_EVT_NIOS_RETUNE_RESPONSE
+        BLADERF_RF_EVT_RX_DATA_INVALIDATED
+        BLADERF_RF_EVT_RX_STREAM_OVERRUN
 
     const uint32_t BLADERF_RF_REQUIRE_PLL_LOCKED
     const uint32_t BLADERF_RF_REQUIRE_ENSM_RX
     const uint32_t BLADERF_RF_REQUIRE_DATAPATH_ARMED
     const uint32_t BLADERF_RF_REQUIRE_EPOCH_VALID
+    const uint32_t BLADERF_RF_INVALIDATE_FREQUENCY
+    const uint32_t BLADERF_RF_INVALIDATE_SAMPLE_RATE
+    const uint32_t BLADERF_RF_INVALIDATE_BANDWIDTH
+    const uint32_t BLADERF_RF_INVALIDATE_GAIN
+    const uint32_t BLADERF_RF_INVALIDATE_GAIN_MODE
+    const uint32_t BLADERF_RF_INVALIDATE_RF_PORT
+    const uint32_t BLADERF_RF_INVALIDATE_CORRECTION
+    const uint32_t BLADERF_RF_INVALIDATE_RX_MUX
+    const uint32_t BLADERF_RF_INVALIDATE_LOOPBACK
+    const uint32_t BLADERF_RF_INVALIDATE_MODULE
+    const uint32_t BLADERF_RF_INVALIDATE_RFIC_REG
+    const uint32_t BLADERF_RF_INVALIDATE_RX_FIR
+    const uint32_t BLADERF_RF_INVALIDATE_CLOCK
+    const uint32_t BLADERF_RF_STREAM_STATUS_OVERRUN
 
     cdef struct bladerf_rf_event:
         uint64_t host_monotonic_ns
@@ -621,6 +643,10 @@ cdef extern from 'libbladeRF.h' nogil:
     int bladerf_rx_transition_get_events(bladerf *dev,
         uint32_t transaction_id, bladerf_rf_event *events, uint32_t capacity,
         uint32_t *event_count, c_bool *history_complete)
+
+    int bladerf_rf_events_get_since(bladerf *dev, uint64_t after_sequence,
+        bladerf_rf_event *events, uint32_t capacity, uint32_t *event_count,
+        uint64_t *next_sequence, c_bool *history_complete)
 
     int bladerf_rx_transition_get_nios_timing(bladerf *dev,
         uint32_t transaction_id, bladerf_rx_transition_nios_timing *timing)

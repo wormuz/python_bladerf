@@ -1345,6 +1345,9 @@ cdef class PyBladerfDevice:
         self.__sync_config = {}
         self.__sync_torn_down = set()
         self.__auto_reconfig = True
+        self.__rf_event_callbacks = []
+        self.__rf_event_callback_errors = []
+        self.__rf_event_cursor = 0
 
     def __dealloc__(self):
         global global_callbacks
@@ -1462,7 +1465,77 @@ cdef class PyBladerfDevice:
 
     def pybladerf_set_gain(self, channel: int, gain: int) -> None:
         result = cbladerf.bladerf_set_gain(self.__bladerf_device, channel, gain)
+        self.pybladerf_dispatch_rf_events()
         raise_error('pybladerf_set_gain()', result)
+
+    def pybladerf_add_rf_event_callback(self, callback) -> None:
+        """Register a synchronous observer for all RF events, including IQ invalidation."""
+        if not callable(callback):
+            raise TypeError('callback must be callable')
+        # Start at the current tail so registration never replays old events.
+        tail = self.pybladerf_rf_events_since(self.__rf_event_cursor)
+        self.__rf_event_cursor = tail['next_sequence']
+        self.__rf_event_callbacks.append(callback)
+
+    def pybladerf_remove_rf_event_callback(self, callback) -> None:
+        self.__rf_event_callbacks.remove(callback)
+
+    def pybladerf_get_rf_event_callback_errors(self, clear: bool = False) -> list:
+        errors = list(self.__rf_event_callback_errors)
+        if clear:
+            self.__rf_event_callback_errors.clear()
+        return errors
+
+    def pybladerf_rf_events_since(self, after_sequence=None) -> dict:
+        cdef cbladerf.bladerf_rf_event events[64]
+        cdef uint32_t count = 0
+        cdef uint64_t next_sequence = 0
+        cdef cbladerf.c_bool complete = False
+        cdef int result
+        cdef list items = []
+        cdef uint64_t cursor = self.__rf_event_cursor if after_sequence is None else after_sequence
+        cdef cbladerf.bladerf_rf_event *event
+        result = cbladerf.bladerf_rf_events_get_since(
+            self.__bladerf_device, cursor, events, 64, &count,
+            &next_sequence, &complete)
+        if result != 0 and complete:
+            raise_error('pybladerf_rf_events_since()', result)
+        for i in range(count):
+            event = &events[i]
+            items.append({
+                'host_monotonic_ns': event.host_monotonic_ns,
+                'fpga_timestamp': event.fpga_timestamp,
+                'transaction_id': event.transaction_id,
+                'epoch_id': event.epoch_id,
+                'requested_rx_lo_hz': event.requested_rx_lo_hz,
+                'readback_rx_lo_hz': event.readback_rx_lo_hz,
+                'rfic_status': event.rfic_status,
+                'fpga_state': int(event.fpga_state),
+                'event_type': int(event.event_type),
+                'event_name': ('rx_data_invalidated'
+                               if event.event_type == cbladerf.BLADERF_RF_EVT_RX_DATA_INVALIDATED
+                               else 'rx_stream_overrun'
+                               if event.event_type == cbladerf.BLADERF_RF_EVT_RX_STREAM_OVERRUN
+                               else 'rf_transition'),
+                'flags': event.flags,
+                'error_code': event.error_code,
+            })
+        return {'events': items, 'next_sequence': next_sequence,
+                'history_complete': bool(complete)}
+
+    def pybladerf_dispatch_rf_events(self) -> None:
+        result = self.pybladerf_rf_events_since()
+        self.__rf_event_cursor = result['next_sequence']
+        if not result['history_complete']:
+            self.__rf_event_callback_errors.append(
+                {'error': 'RF event history overrun', 'history_complete': False})
+        for event in result['events']:
+            for callback in list(self.__rf_event_callbacks):
+                try:
+                    callback(event)
+                except Exception as exc:
+                    self.__rf_event_callback_errors.append(
+                        {'event': event, 'error': repr(exc)})
 
     def pybladerf_get_gain(self, channel: int) -> int:
         cdef int gain
@@ -1531,6 +1604,7 @@ cdef class PyBladerfDevice:
 
         result = cbladerf.bladerf_rx_transition_wait(
             self.__bladerf_device, transaction_id, &final_event, timeout_ms)
+        self.pybladerf_dispatch_rf_events()
         raise_error('pybladerf_rx_transition_wait()', result)
 
         return {
@@ -1610,6 +1684,7 @@ cdef class PyBladerfDevice:
 
     def pybladerf_set_gain_mode(self, channel: int, mode: pybladerf_gain_mode) -> None:
         result = cbladerf.bladerf_set_gain_mode(self.__bladerf_device, channel, mode)
+        self.pybladerf_dispatch_rf_events()
         raise_error('pybladerf_set_gain_mode()', result)
 
     def pybladerf_get_gain_mode(self, channel: int) -> pybladerf_gain_mode:
@@ -1632,6 +1707,7 @@ cdef class PyBladerfDevice:
 
     def pybladerf_set_gain_stage(self, channel: int, stage: str, gain: int) -> None:
         result = cbladerf.bladerf_set_gain_stage(self.__bladerf_device, channel, stage.encode('utf-8'), gain)
+        self.pybladerf_dispatch_rf_events()
         raise_error('pybladerf_set_gain_stage()', result)
 
     def pybladerf_get_gain_stage(self, channel: int, stage: str) -> int:
@@ -1655,6 +1731,7 @@ cdef class PyBladerfDevice:
     def pybladerf_set_sample_rate(self, channel: int, sample_rate: int) -> int:
         cdef unsigned int actual_sample_rate
         result = cbladerf.bladerf_set_sample_rate(self.__bladerf_device, channel, <unsigned int> sample_rate, &actual_sample_rate)
+        self.pybladerf_dispatch_rf_events()
         raise_error('pybladerf_set_sample_rate()', result)
         return actual_sample_rate
 
@@ -1667,6 +1744,7 @@ cdef class PyBladerfDevice:
         rate.den = <uint64_t> den
 
         result = cbladerf.bladerf_set_rational_sample_rate(self.__bladerf_device, channel, &rate, &actual_sample_rate)
+        self.pybladerf_dispatch_rf_events()
         raise_error('pybladerf_set_rational_sample_rate()', result)
         return actual_sample_rate.integer, actual_sample_rate.num, actual_sample_rate.den
 
@@ -1691,6 +1769,7 @@ cdef class PyBladerfDevice:
     def pybladerf_set_bandwidth(self, channel: int, bandwidth: int) -> int:
         cdef unsigned int actual_bandwidth
         result = cbladerf.bladerf_set_bandwidth(self.__bladerf_device, channel, <unsigned int> bandwidth, &actual_bandwidth)
+        self.pybladerf_dispatch_rf_events()
         raise_error('pybladerf_set_bandwidth()', result)
         return actual_bandwidth
 
@@ -1712,6 +1791,7 @@ cdef class PyBladerfDevice:
 
     def pybladerf_set_frequency(self, channel: int, frequency: int) -> None:
         result = cbladerf.bladerf_set_frequency(self.__bladerf_device, channel, <uint64_t> frequency)
+        self.pybladerf_dispatch_rf_events()
         raise_error('pybladerf_set_frequency()', result)
 
     def pybladerf_get_frequency(self, channel: int) -> int:
@@ -1737,6 +1817,7 @@ cdef class PyBladerfDevice:
 
     def pybladerf_set_loopback(self, lb: pybladerf_loopback) -> None:
         result = cbladerf.bladerf_set_loopback(self.__bladerf_device, lb)
+        self.pybladerf_dispatch_rf_events()
         raise_error('pybladerf_set_loopback()', result)
 
     def pybladerf_get_loopback(self) -> pybladerf_loopback:
@@ -1768,6 +1849,7 @@ cdef class PyBladerfDevice:
 
     def pybladerf_set_rx_mux(self, mux: pybladerf_rx_mux) -> None:
         result = cbladerf.bladerf_set_rx_mux(self.__bladerf_device, mux)
+        self.pybladerf_dispatch_rf_events()
         raise_error('pybladerf_set_rx_mux()', result)
 
     def pybladerf_get_rx_mux(self) -> pybladerf_rx_mux:
@@ -1804,6 +1886,7 @@ cdef class PyBladerfDevice:
 
     def pybladerf_set_correction(self, channel: int, correction: pybladerf_correction, value: int) -> None:
         result = cbladerf.bladerf_set_correction(self.__bladerf_device, channel, correction, <int16_t> value)
+        self.pybladerf_dispatch_rf_events()
         raise_error('pybladerf_set_correction()', result)
 
     def pybladerf_get_correction(self, channel: int, correction: pybladerf_correction) -> int:
@@ -1832,6 +1915,7 @@ cdef class PyBladerfDevice:
         # Remember the last configuration per direction and restore it on
         # re-enable, so a disable/enable cycle keeps working.
         result = cbladerf.bladerf_enable_module(self.__bladerf_device, channel, enable)
+        self.pybladerf_dispatch_rf_events()
         raise_error('pybladerf_enable_module()', result)
 
         direction = 1 if (channel & 1) else 0          # TX channels are odd
@@ -1933,6 +2017,7 @@ cdef class PyBladerfDevice:
 
         with nogil:
             result = cbladerf.bladerf_sync_rx(self.__bladerf_device, c_samples_ptr, c_num_samples, c_metadata_ptr, c_timeout_ms)
+        self.pybladerf_dispatch_rf_events()
         raise_error('pybladerf_sync_rx()', result)
 
     def __check_metadata_required(self, direction: int, caller: str) -> None:
@@ -2078,6 +2163,7 @@ cdef class PyBladerfDevice:
 
     def pybladerf_set_vctcxo_tamer_mode(self, mode: pybladerf_vctcxo_tamer_mode) -> None:
         result = cbladerf.bladerf_set_vctcxo_tamer_mode(self.__bladerf_device, mode)
+        self.pybladerf_dispatch_rf_events()
         raise_error('pybladerf_set_vctcxo_tamer_mode()', result)
 
     def pybladerf_get_vctcxo_tamer_mode(self) -> pybladerf_vctcxo_tamer_mode:
@@ -2094,6 +2180,7 @@ cdef class PyBladerfDevice:
 
     def pybladerf_trim_dac_write(self, value: int) -> None:
         result = cbladerf.bladerf_trim_dac_write(self.__bladerf_device, <uint16_t> value)
+        self.pybladerf_dispatch_rf_events()
         raise_error('pybladerf_trim_dac_write()', result)
 
     def pybladerf_trim_dac_read(self) -> int:
@@ -2124,6 +2211,7 @@ cdef class PyBladerfDevice:
 
     def pybladerf_set_rf_port(self, channel: int, port: str) -> None:
         result = cbladerf.bladerf_set_rf_port(self.__bladerf_device, channel, port.encode('utf-8'))
+        self.pybladerf_dispatch_rf_events()
         raise_error('pybladerf_set_rf_port()', result)
 
     def pybladerf_get_rf_port(self, channel: int) -> str:
@@ -2159,6 +2247,7 @@ cdef class PyBladerfDevice:
 
     def pybladerf_set_bias_tee(self, channel: int, enable: bool) -> None:
         result = cbladerf.bladerf_set_bias_tee(self.__bladerf_device, channel, enable)
+        self.pybladerf_dispatch_rf_events()
         raise_error('pybladerf_set_bias_tee()', result)
 
     def pybladerf_get_rfic_register(self, address: int) -> int:
@@ -2169,6 +2258,7 @@ cdef class PyBladerfDevice:
 
     def pybladerf_set_rfic_register(self, address: int, value: int) -> None:
         result = cbladerf.bladerf_set_rfic_register(self.__bladerf_device, <uint16_t> address, <uint8_t> value)
+        self.pybladerf_dispatch_rf_events()
         raise_error('pybladerf_set_rfic_register()', result)
 
     def pybladerf_config_gpio_read(self) -> int:
@@ -2244,6 +2334,7 @@ cdef class PyBladerfDevice:
 
     def pybladerf_set_rfic_rx_fir(self, rxfir: pybladerf_rfic_rxfir) -> None:
         result = cbladerf.bladerf_set_rfic_rx_fir(self.__bladerf_device, rxfir)
+        self.pybladerf_dispatch_rf_events()
         raise_error('pybladerf_set_rfic_rx_fir()', result)
 
     def pybladerf_get_rfic_tx_fir(self) -> pybladerf_rfic_txfir:
@@ -2270,6 +2361,7 @@ cdef class PyBladerfDevice:
 
     def pybladerf_set_pll_enable(self, enable: bool) -> None:
         result = cbladerf.bladerf_set_pll_enable(self.__bladerf_device, enable)
+        self.pybladerf_dispatch_rf_events()
         raise_error('pybladerf_set_pll_enable()', result)
 
     def pybladerf_get_pll_refclk_range(self) -> pybladerf_range:
@@ -2286,6 +2378,7 @@ cdef class PyBladerfDevice:
 
     def pybladerf_set_pll_refclk(self, frequency: int) -> None:
         result = cbladerf.bladerf_set_pll_refclk(self.__bladerf_device, <uint64_t> frequency)
+        self.pybladerf_dispatch_rf_events()
         raise_error('pybladerf_set_pll_refclk()', result)
 
     def pybladerf_get_pll_register(self, address: int) -> int:
@@ -2296,6 +2389,7 @@ cdef class PyBladerfDevice:
 
     def pybladerf_set_pll_register(self, address: int, value: int) -> None:
         result = cbladerf.bladerf_set_pll_register(self.__bladerf_device, <uint8_t> address, <uint32_t> value)
+        self.pybladerf_dispatch_rf_events()
         raise_error('pybladerf_set_pll_register()', result)
 
     def pybladerf_get_power_source(self) -> pybladerf_power_sources:
@@ -2312,6 +2406,7 @@ cdef class PyBladerfDevice:
 
     def pybladerf_set_clock_select(self, sel: pybladerf_clock_select) -> None:
         result = cbladerf.bladerf_set_clock_select(self.__bladerf_device, sel)
+        self.pybladerf_dispatch_rf_events()
         raise_error('pybladerf_set_clock_select()', result)
 
     def pybladerf_get_clock_output(self) -> bool:

@@ -24,6 +24,7 @@
 # cython: language_level = 3str
 # cython: freethreading_compatible = True
 from libcpp cimport bool as c_bool
+from libc.stdint cimport uint64_t
 from . cimport cbladerf
 
 cdef struct pybladerf_async_data:
@@ -109,6 +110,9 @@ cdef class PyBladerfDevice:
     cdef dict __sync_config
     cdef set __sync_torn_down
     cdef bint __auto_reconfig
+    cdef list __rf_event_callbacks
+    cdef list __rf_event_callback_errors
+    cdef uint64_t __rf_event_cursor
 
     cdef cbladerf.bladerf *get_ptr(self)
 
