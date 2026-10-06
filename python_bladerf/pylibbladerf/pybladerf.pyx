@@ -56,6 +56,7 @@ RF_WITHHELD_USB_TRANSFER_ERROR = (
     cbladerf.BLADERF_RF_WITHHELD_USB_TRANSFER_ERROR)
 RF_WITHHELD_USB_TIMEOUT = cbladerf.BLADERF_RF_WITHHELD_USB_TIMEOUT
 RF_WITHHELD_DEVICE_LOST = cbladerf.BLADERF_RF_WITHHELD_DEVICE_LOST
+RF_WITHHELD_SYNC_TIMEOUT = cbladerf.BLADERF_RF_WITHHELD_SYNC_TIMEOUT
 RF_INVALIDATE_TUNING_MODE = cbladerf.BLADERF_RF_INVALIDATE_TUNING_MODE
 RF_INVALIDATE_DEVICE_RESET = cbladerf.BLADERF_RF_INVALIDATE_DEVICE_RESET
 RF_INVALIDATE_FPGA_RELOAD = cbladerf.BLADERF_RF_INVALIDATE_FPGA_RELOAD
@@ -86,6 +87,7 @@ def _rf_event_validity_fields(event_type: int, flags: int) -> dict:
         RF_WITHHELD_USB_TRANSFER_ERROR: 'usb_transfer_error',
         RF_WITHHELD_USB_TIMEOUT: 'usb_timeout',
         RF_WITHHELD_DEVICE_LOST: 'device_lost',
+        RF_WITHHELD_SYNC_TIMEOUT: 'sync_timeout',
     }
     return {'iq_valid': False, 'withheld_reason': reasons.get(flags, 'unknown')}
 

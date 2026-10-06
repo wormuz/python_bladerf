@@ -5,6 +5,7 @@ from python_bladerf.pylibbladerf.pybladerf import (
     RF_INVALIDATE_TUNING_MODE,
     RF_WITHHELD_DEVICE_LOST,
     RF_WITHHELD_SHORT_TRANSFER,
+    RF_WITHHELD_SYNC_TIMEOUT,
     RF_WITHHELD_TIMESTAMP_DISCONTINUITY,
     RF_WITHHELD_USB_OVERFLOW,
     RF_WITHHELD_USB_TIMEOUT,
@@ -113,6 +114,7 @@ def test_timestamp_discontinuity_reason_is_public():
     for reason, name in [
         (RF_WITHHELD_USB_TRANSFER_ERROR, "usb_transfer_error"),
         (RF_WITHHELD_USB_TIMEOUT, "usb_timeout"),
+        (RF_WITHHELD_SYNC_TIMEOUT, "sync_timeout"),
         (RF_WITHHELD_DEVICE_LOST, "device_lost"),
     ]:
         assert _rf_event_validity_fields(22, reason) == {
