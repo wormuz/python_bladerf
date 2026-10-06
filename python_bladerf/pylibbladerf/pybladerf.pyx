@@ -2320,10 +2320,10 @@ cdef class PyBladerfDevice:
         raise_error('pybladerf_device_reset()', result)
 
     def pybladerf_load_fpga(self, fpga_file: str) -> None:
-        """Load an FPGA image; the existing RX epoch is invalidated first.
+        """Load an FPGA image while RX/TX modules are disabled.
 
-        RX remains uncertified until the caller configures RX and completes a
-        new event-driven transition.
+        The current RX epoch is invalidated first. RX remains uncertified
+        until the caller configures RX and completes a new event transition.
         """
         result = cbladerf.bladerf_load_fpga(
             self.__bladerf_device, fpga_file.encode('utf-8'))

@@ -1807,7 +1807,7 @@ class PyBladerfDevice:
         ...
 
     def pybladerf_load_fpga(self, fpga_file: str) -> None:
-        '''Load an FPGA image and invalidate the prior RX data epoch'''
+        '''Load an FPGA image with RX/TX disabled; invalidate prior RX epoch'''
         ...
 
     def pybladerf_jump_to_bootloader(self) -> None:
