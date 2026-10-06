@@ -1,4 +1,5 @@
 from python_bladerf.pylibbladerf.pybladerf import (
+    PyBladerfDevice,
     _dispatch_rf_event_batch,
 )
 
@@ -41,3 +42,11 @@ def test_history_loss_notification_reaches_callbacks_and_records_errors():
                          "history_complete": False}
     assert errors[1]["event"] == event
     assert "consumer failed" in errors[1]["error"]
+
+
+def test_dispatch_without_subscribers_does_not_consume_native_history():
+    # An unopened wrapper has no C device. Dispatch must return before asking
+    # libbladeRF for events when no subscriber exists, leaving its ring
+    # available to an explicit rf_events_since() query later.
+    device = PyBladerfDevice()
+    device.pybladerf_dispatch_rf_events()

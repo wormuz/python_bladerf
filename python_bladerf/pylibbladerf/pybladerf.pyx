@@ -1573,6 +1573,12 @@ cdef class PyBladerfDevice:
                 'history_complete': bool(complete)}
 
     def pybladerf_dispatch_rf_events(self) -> None:
+        # Do not consume the library's event history merely because an API
+        # call completed. Without a subscriber, callers must still be able to
+        # retrieve those events later with pybladerf_rf_events_since(); the
+        # bounded C ring is the unconditional notification channel.
+        if not self.__rf_event_callbacks:
+            return
         previous_cursor = self.__rf_event_cursor
         result = self.pybladerf_rf_events_since()
         self.__rf_event_cursor = result['next_sequence']
