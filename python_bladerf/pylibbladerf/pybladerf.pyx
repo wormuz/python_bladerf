@@ -1196,6 +1196,13 @@ cdef void *__rx_callback_SC16_Q11(cbladerf.bladerf *dev, cbladerf.bladerf_stream
 
     with gil:
         pystream = <pybladerf_stream> async_data.pystream
+        device = global_callbacks[<size_t> dev]['device']
+        # RX validity/overrun events are produced on the native async path.
+        # Dispatch before any valid IQ reaches the Python consumer; a
+        # zero-sample callback is an event-only wakeup for a rejected buffer.
+        device.pybladerf_dispatch_rf_events()
+        if num_samples == 0:
+            return pystream.get_next_buffer_ptr()
 
         np_buffer = np.empty(num_samples * 2, dtype=np.int16)
         np_buffer_ptr = <uint8_t*> <uintptr_t> np_buffer.ctypes.data
@@ -1231,6 +1238,10 @@ cdef void *__rx_callback_SC8_Q7(cbladerf.bladerf *dev, cbladerf.bladerf_stream *
 
     with gil:
         pystream = <pybladerf_stream> async_data.pystream
+        device = global_callbacks[<size_t> dev]['device']
+        device.pybladerf_dispatch_rf_events()
+        if num_samples == 0:
+            return pystream.get_next_buffer_ptr()
 
         np_buffer = np.empty(num_samples * 2, dtype=np.int8)
         np_buffer_ptr = <uint8_t*> <uintptr_t> np_buffer.ctypes.data
