@@ -2021,6 +2021,7 @@ cdef class PyBladerfDevice:
 
     def pybladerf_sync_config(self, layout: pybladerf_channel_layout, data_format: pybladerf_format, num_buffers: int, buffer_size: int, num_transfers: int, stream_timeout: int) -> None:
         result = cbladerf.bladerf_sync_config(self.__bladerf_device, layout, data_format, <unsigned int> num_buffers, <unsigned int> buffer_size, <unsigned int> num_transfers, <unsigned int> stream_timeout)
+        self.pybladerf_dispatch_rf_events()
         raise_error('pybladerf_sync_config()', result)
 
         # Keep the settings so pybladerf_enable_module() can restore the
