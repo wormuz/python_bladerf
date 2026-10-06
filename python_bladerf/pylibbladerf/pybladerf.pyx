@@ -56,6 +56,18 @@ RF_WITHHELD_USB_TRANSFER_ERROR = (
     cbladerf.BLADERF_RF_WITHHELD_USB_TRANSFER_ERROR)
 RF_WITHHELD_USB_TIMEOUT = cbladerf.BLADERF_RF_WITHHELD_USB_TIMEOUT
 RF_WITHHELD_DEVICE_LOST = cbladerf.BLADERF_RF_WITHHELD_DEVICE_LOST
+RF_INVALIDATE_TUNING_MODE = cbladerf.BLADERF_RF_INVALIDATE_TUNING_MODE
+RF_INVALIDATE_DEVICE_RESET = cbladerf.BLADERF_RF_INVALIDATE_DEVICE_RESET
+
+
+def _rf_invalidation_reason(event_type: int, flags: int):
+    if event_type != cbladerf.BLADERF_RF_EVT_RX_DATA_INVALIDATED:
+        return None
+    reasons = {
+        RF_INVALIDATE_TUNING_MODE: 'tuning_mode',
+        RF_INVALIDATE_DEVICE_RESET: 'device_reset',
+    }
+    return reasons.get(flags, 'unknown')
 
 
 def _rf_event_validity_fields(event_type: int, flags: int) -> dict:
@@ -1653,6 +1665,8 @@ cdef class PyBladerfDevice:
                 'event_type': int(event.event_type),
                 'event_name': _rf_event_name(event.event_type),
                 'flags': event.flags,
+                'invalidation_reason': _rf_invalidation_reason(
+                    event.event_type, event.flags),
                 'error_code': event.error_code,
                 **_rf_event_validity_fields(event.event_type, event.flags),
             })
@@ -1802,6 +1816,8 @@ cdef class PyBladerfDevice:
                 'fpga_state': int(event.fpga_state),
                 'event_type': int(event.event_type),
                 'flags': event.flags,
+                'invalidation_reason': _rf_invalidation_reason(
+                    event.event_type, event.flags),
                 'error_code': event.error_code,
                 **_rf_event_validity_fields(event.event_type, event.flags),
             })
@@ -2296,6 +2312,7 @@ cdef class PyBladerfDevice:
 
     def pybladerf_device_reset(self) -> None:
         result = cbladerf.bladerf_device_reset(self.__bladerf_device)
+        self.pybladerf_dispatch_rf_events()
         raise_error('pybladerf_device_reset()', result)
 
     def pybladerf_get_fw_log(self, filename: str | None = None) -> None:
@@ -2344,6 +2361,7 @@ cdef class PyBladerfDevice:
 
     def pybladerf_set_tuning_mode(self, mode: pybladerf_tuning_mode) -> None:
         result = cbladerf.bladerf_set_tuning_mode(self.__bladerf_device, mode)
+        self.pybladerf_dispatch_rf_events()
         raise_error('pybladerf_set_tuning_mode()', result)
 
     def pybladerf_get_tuning_mode(self) -> pybladerf_tuning_mode:

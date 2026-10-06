@@ -1,16 +1,26 @@
 from python_bladerf.pylibbladerf.pybladerf import (
+    RF_INVALIDATE_DEVICE_RESET,
+    RF_INVALIDATE_TUNING_MODE,
+    RF_WITHHELD_DEVICE_LOST,
+    RF_WITHHELD_SHORT_TRANSFER,
+    RF_WITHHELD_TIMESTAMP_DISCONTINUITY,
+    RF_WITHHELD_USB_OVERFLOW,
+    RF_WITHHELD_USB_TIMEOUT,
+    RF_WITHHELD_USB_TRANSFER_ERROR,
     PyBladerfDevice,
     _dispatch_rf_event_batch,
     _dispatch_rx_data_withheld,
-    _rf_event_validity_fields,
     _rf_event_name,
-    RF_WITHHELD_TIMESTAMP_DISCONTINUITY,
-    RF_WITHHELD_SHORT_TRANSFER,
-    RF_WITHHELD_USB_OVERFLOW,
-    RF_WITHHELD_USB_TRANSFER_ERROR,
-    RF_WITHHELD_USB_TIMEOUT,
-    RF_WITHHELD_DEVICE_LOST,
+    _rf_event_validity_fields,
+    _rf_invalidation_reason,
 )
+
+
+def test_rf_invalidation_reason_names_cover_owner_and_device_reset():
+    # RX_DATA_INVALIDATED is event type 19 in the public libbladeRF API.
+    assert _rf_invalidation_reason(19, RF_INVALIDATE_TUNING_MODE) == "tuning_mode"
+    assert _rf_invalidation_reason(19, RF_INVALIDATE_DEVICE_RESET) == "device_reset"
+    assert _rf_invalidation_reason(20, RF_INVALIDATE_DEVICE_RESET) is None
 
 
 def test_dispatch_synthesizes_history_loss_before_retained_events():

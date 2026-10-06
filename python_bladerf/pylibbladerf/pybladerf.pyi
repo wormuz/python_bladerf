@@ -29,6 +29,9 @@ from typing import Any, Self
 import numpy as np
 from typing_extensions import override
 
+RF_INVALIDATE_TUNING_MODE: int
+RF_INVALIDATE_DEVICE_RESET: int
+
 def PYBLADERF_CHANNEL_RX(channel: int) -> int:
     '''Return rx channel by number (0, 1)'''
     ...
