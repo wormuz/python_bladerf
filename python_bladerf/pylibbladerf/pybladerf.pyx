@@ -1489,22 +1489,34 @@ cdef class PyBladerfDevice:
     def pybladerf_rx_transition_begin(self, channel: int, frequency_hz: int,
                                       required_events_mask: int,
                                       timeout_ms: int,
-                                      require_rx_data_valid: bool = True) -> int:
-        """ADR-0207 BLADE_RF_EVENT_DRIVEN_RF_STATE_001: event-driven RX
-        retune. Виконує реальний `bladerf_set_frequency()` (той самий
-        host-mode шлях, що й завжди), потім арм'ує спостереження за
-        RF-подіями. Повертає `transaction_id` для
+                                      require_rx_data_valid: bool = True,
+                                      quick_tune=None) -> int:
+        """ADR-0207: event-driven RX retune. Без quick_tune виконує
+        host-mode `bladerf_set_frequency`; з quick_tune використовує
+        NIOS fastlock recall. В обох випадках FPGA epoch fence
+        встановлюється до перебудови. Повертає `transaction_id` для
         `pybladerf_rx_transition_wait()` -- НЕ блокує сам по собі."""
         cdef cbladerf.bladerf_rx_transition_request request
         cdef uint32_t transaction_id
+        cdef cbladerf.bladerf_quick_tune *quick_tune_ptr = NULL
 
         request.target_frequency_hz = frequency_hz
         request.required_events_mask = required_events_mask
         request.timeout_ms = timeout_ms
         request.require_rx_data_valid = require_rx_data_valid
+        request.epoch_settle_samples = 0
 
-        result = cbladerf.bladerf_rx_transition_begin(
-            self.__bladerf_device, channel, &request, &transaction_id)
+        if quick_tune is not None:
+            if not isinstance(quick_tune, pybladerf_quick_tune):
+                raise TypeError("quick_tune must be pybladerf_quick_tune or None")
+            quick_tune_ptr = (<pybladerf_quick_tune>quick_tune).get_ptr()
+            result = cbladerf.bladerf_rx_transition_begin_quick_tune(
+                self.__bladerf_device, channel, &request, quick_tune_ptr,
+                &transaction_id)
+        else:
+            result = cbladerf.bladerf_rx_transition_begin(
+                self.__bladerf_device, channel, &request, &transaction_id)
+
         raise_error('pybladerf_rx_transition_begin()', result)
         return transaction_id
 
@@ -1534,6 +1546,43 @@ cdef class PyBladerfDevice:
             'flags': final_event.flags,
             'error_code': final_event.error_code,
         }
+
+    def pybladerf_rx_transition_get_events(self, transaction_id: int) -> dict:
+        """Повертає збережені події переходу у часовому порядку.
+
+        Результат містить список `events` та `history_complete`. Останній
+        буде False, якщо транзакція ще не завершена або її початок/кінець
+        витіснено з обмеженого C-кольца.
+        """
+        cdef cbladerf.bladerf_rf_event events[64]
+        cdef uint32_t event_count = 0
+        cdef cbladerf.c_bool history_complete = False
+        cdef int result
+        cdef list event_list = []
+        cdef cbladerf.bladerf_rf_event *event
+
+        result = cbladerf.bladerf_rx_transition_get_events(
+            self.__bladerf_device, transaction_id, events, 64,
+            &event_count, &history_complete)
+        raise_error('pybladerf_rx_transition_get_events()', result)
+
+        for i in range(event_count):
+            event = &events[i]
+            event_list.append({
+                'host_monotonic_ns': event.host_monotonic_ns,
+                'fpga_timestamp': event.fpga_timestamp,
+                'transaction_id': event.transaction_id,
+                'epoch_id': event.epoch_id,
+                'requested_rx_lo_hz': event.requested_rx_lo_hz,
+                'readback_rx_lo_hz': event.readback_rx_lo_hz,
+                'rfic_status': event.rfic_status,
+                'fpga_state': int(event.fpga_state),
+                'event_type': int(event.event_type),
+                'flags': event.flags,
+                'error_code': event.error_code,
+            })
+        return {'events': event_list,
+                'history_complete': bool(history_complete)}
 
     def pybladerf_get_rfic_temperature(self) -> float:
         cdef float val

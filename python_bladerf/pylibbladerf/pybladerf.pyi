@@ -1548,6 +1548,19 @@ class PyBladerfDevice:
         '''
         ...
 
+    def pybladerf_rx_transition_begin(self, channel: int, frequency_hz: int,
+                                     required_events_mask: int, timeout_ms: int,
+                                     require_rx_data_valid: bool = True,
+                                     quick_tune: pybladerf_quick_tune | None = None) -> int:
+        ...
+
+    def pybladerf_rx_transition_wait(self, transaction_id: int,
+                                    timeout_ms: int) -> dict[str, int]:
+        ...
+
+    def pybladerf_rx_transition_get_events(self, transaction_id: int) -> dict[str, object]:
+        ...
+
     def pybladerf_cancel_scheduled_retunes(self, channel: int) -> None:
         '''
         Cancel all pending scheduled retune operations for the specified channel.

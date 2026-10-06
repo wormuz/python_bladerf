@@ -596,12 +596,21 @@ cdef extern from 'libbladeRF.h' nogil:
         uint32_t required_events_mask
         uint32_t timeout_ms
         c_bool require_rx_data_valid
+        uint32_t epoch_settle_samples
 
     int bladerf_rx_transition_begin(bladerf *dev, int ch,
         const bladerf_rx_transition_request *request, uint32_t *transaction_id)
 
+    int bladerf_rx_transition_begin_quick_tune(bladerf *dev, int ch,
+        const bladerf_rx_transition_request *request,
+        const bladerf_quick_tune *quick_tune, uint32_t *transaction_id)
+
     int bladerf_rx_transition_wait(bladerf *dev, uint32_t transaction_id,
         bladerf_rf_event *final_event, uint32_t timeout_ms)
+
+    int bladerf_rx_transition_get_events(bladerf *dev,
+        uint32_t transaction_id, bladerf_rf_event *events, uint32_t capacity,
+        uint32_t *event_count, c_bool *history_complete)
 
 cdef extern from 'bladeRF2.h' nogil:
     int bladerf_get_bias_tee(bladerf *dev, int ch, c_bool *enable)

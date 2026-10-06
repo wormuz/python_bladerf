@@ -87,6 +87,17 @@ class CustomBuildExt(build_ext):
             self.distribution.ext_modules,
             compile_time_env=compile_env,
         )
+        # `build_ext.__init__` captured the original `.pyx` extensions
+        # before the call above. Refresh its command-local copy as well;
+        # otherwise Cython's build_ext cythonizes those stale entries a
+        # second time without the compile-time environment (ANDROID).
+        self.extensions = self.distribution.ext_modules
+        # Setuptools 80 expects this attribute on Extension instances, but
+        # Cython 3.2's `cythonize()` returns plain setuptools Extension
+        # objects when sources have already been converted to C++.
+        for ext in self.extensions:
+            if not hasattr(ext, '_needs_stub'):
+                ext._needs_stub = False
         super().run()  # type: ignore
 
 
