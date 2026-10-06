@@ -1757,6 +1757,11 @@ cdef class PyBladerfDevice:
             result = cbladerf.bladerf_rx_transition_begin(
                 self.__bladerf_device, channel, &request, &transaction_id)
 
+        # begin can append CONFIG_ACCEPTED and terminal failure events before
+        # returning an error (for example, an FPGA epoch ARM failure). Drain
+        # them before raise_error so Python subscribers see the failure on
+        # the same call that caused it.
+        self.pybladerf_dispatch_rf_events()
         raise_error('pybladerf_rx_transition_begin()', result)
         return transaction_id
 
