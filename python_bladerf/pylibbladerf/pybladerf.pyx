@@ -58,6 +58,8 @@ RF_WITHHELD_USB_TIMEOUT = cbladerf.BLADERF_RF_WITHHELD_USB_TIMEOUT
 RF_WITHHELD_DEVICE_LOST = cbladerf.BLADERF_RF_WITHHELD_DEVICE_LOST
 RF_INVALIDATE_TUNING_MODE = cbladerf.BLADERF_RF_INVALIDATE_TUNING_MODE
 RF_INVALIDATE_DEVICE_RESET = cbladerf.BLADERF_RF_INVALIDATE_DEVICE_RESET
+RF_INVALIDATE_FPGA_RELOAD = cbladerf.BLADERF_RF_INVALIDATE_FPGA_RELOAD
+RF_INVALIDATE_BOOTLOADER = cbladerf.BLADERF_RF_INVALIDATE_BOOTLOADER
 
 
 def _rf_invalidation_reason(event_type: int, flags: int):
@@ -66,6 +68,8 @@ def _rf_invalidation_reason(event_type: int, flags: int):
     reasons = {
         RF_INVALIDATE_TUNING_MODE: 'tuning_mode',
         RF_INVALIDATE_DEVICE_RESET: 'device_reset',
+        RF_INVALIDATE_FPGA_RELOAD: 'fpga_reload',
+        RF_INVALIDATE_BOOTLOADER: 'bootloader',
     }
     return reasons.get(flags, 'unknown')
 
@@ -2314,6 +2318,23 @@ cdef class PyBladerfDevice:
         result = cbladerf.bladerf_device_reset(self.__bladerf_device)
         self.pybladerf_dispatch_rf_events()
         raise_error('pybladerf_device_reset()', result)
+
+    def pybladerf_load_fpga(self, fpga_file: str) -> None:
+        """Load an FPGA image; the existing RX epoch is invalidated first.
+
+        RX remains uncertified until the caller configures RX and completes a
+        new event-driven transition.
+        """
+        result = cbladerf.bladerf_load_fpga(
+            self.__bladerf_device, fpga_file.encode('utf-8'))
+        self.pybladerf_dispatch_rf_events()
+        raise_error('pybladerf_load_fpga()', result)
+
+    def pybladerf_jump_to_bootloader(self) -> None:
+        """Enter the FX3 bootloader after revoking current RX validity."""
+        result = cbladerf.bladerf_jump_to_bootloader(self.__bladerf_device)
+        self.pybladerf_dispatch_rf_events()
+        raise_error('pybladerf_jump_to_bootloader()', result)
 
     def pybladerf_get_fw_log(self, filename: str | None = None) -> None:
         cdef char *c_filename = NULL

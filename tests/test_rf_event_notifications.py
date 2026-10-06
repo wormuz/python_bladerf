@@ -1,5 +1,7 @@
 from python_bladerf.pylibbladerf.pybladerf import (
+    RF_INVALIDATE_BOOTLOADER,
     RF_INVALIDATE_DEVICE_RESET,
+    RF_INVALIDATE_FPGA_RELOAD,
     RF_INVALIDATE_TUNING_MODE,
     RF_WITHHELD_DEVICE_LOST,
     RF_WITHHELD_SHORT_TRANSFER,
@@ -20,6 +22,8 @@ def test_rf_invalidation_reason_names_cover_owner_and_device_reset():
     # RX_DATA_INVALIDATED is event type 19 in the public libbladeRF API.
     assert _rf_invalidation_reason(19, RF_INVALIDATE_TUNING_MODE) == "tuning_mode"
     assert _rf_invalidation_reason(19, RF_INVALIDATE_DEVICE_RESET) == "device_reset"
+    assert _rf_invalidation_reason(19, RF_INVALIDATE_FPGA_RELOAD) == "fpga_reload"
+    assert _rf_invalidation_reason(19, RF_INVALIDATE_BOOTLOADER) == "bootloader"
     assert _rf_invalidation_reason(20, RF_INVALIDATE_DEVICE_RESET) is None
 
 

@@ -31,6 +31,8 @@ from typing_extensions import override
 
 RF_INVALIDATE_TUNING_MODE: int
 RF_INVALIDATE_DEVICE_RESET: int
+RF_INVALIDATE_FPGA_RELOAD: int
+RF_INVALIDATE_BOOTLOADER: int
 
 def PYBLADERF_CHANNEL_RX(channel: int) -> int:
     '''Return rx channel by number (0, 1)'''
@@ -1802,6 +1804,14 @@ class PyBladerfDevice:
 
     def pybladerf_device_reset(self) -> None:
         '''Reset the device, causing it to reload its firmware from flash'''
+        ...
+
+    def pybladerf_load_fpga(self, fpga_file: str) -> None:
+        '''Load an FPGA image and invalidate the prior RX data epoch'''
+        ...
+
+    def pybladerf_jump_to_bootloader(self) -> None:
+        '''Jump to the FX3 bootloader after invalidating RX data'''
         ...
 
     def pybladerf_get_fw_log(self, filename: str | None = None) -> None:
