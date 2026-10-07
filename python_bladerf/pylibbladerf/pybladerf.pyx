@@ -330,7 +330,12 @@ def _rf_event_validity_fields(event_type: int, flags: int,
                        cbladerf.BLADERF_RF_EVENT_F_RX_X2_LAYOUT |
                        cbladerf.BLADERF_RF_EVENT_F_TRANSITION_RX2 |
                        cbladerf.BLADERF_RF_EVENT_F_TRANSITION_CHANNEL_VALID)
-    return {**timestamp_fields, **invalid_rx_fields,
+    channel_fields = (
+        {'transition_channel': 'RX2'
+         if flags & cbladerf.BLADERF_RF_EVENT_F_TRANSITION_RX2 else 'RX1'}
+        if flags & cbladerf.BLADERF_RF_EVENT_F_TRANSITION_CHANNEL_VALID
+        else {})
+    return {**timestamp_fields, **channel_fields, **invalid_rx_fields,
             'withheld_reason': reasons.get(reason, 'unknown')}
 
 def _rf_event_notifications(events, history_complete: bool,

@@ -302,8 +302,16 @@ def test_timestamp_discontinuity_reason_is_public():
         RF_EVENT_F_TRANSITION_CHANNEL_VALID | RF_EVENT_F_TRANSITION_RX2 |
         RF_EVENT_F_FPGA_TIMESTAMP_VALID) == {
             **RX_INVALID_FIELDS,
+            "transition_channel": "RX2",
             "withheld_reason": "rx_channel_selection",
             "fpga_timestamp_valid": True,
+        }
+    assert _rf_event_validity_fields(
+        22, RF_WITHHELD_SHORT_TRANSFER |
+        RF_EVENT_F_TRANSITION_CHANNEL_VALID) == {
+            **RX_INVALID_FIELDS,
+            "transition_channel": "RX1",
+            "withheld_reason": "short_transfer",
         }
     assert _rf_event_validity_fields(22, RF_WITHHELD_TIMESTAMP_DISCONTINUITY) == {
         **RX_INVALID_FIELDS,
