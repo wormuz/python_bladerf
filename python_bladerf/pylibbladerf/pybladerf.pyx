@@ -104,7 +104,9 @@ def _rf_invalidation_reason(event_type: int, flags: int):
 
 
 def _rf_event_validity_fields(event_type: int, flags: int) -> dict:
-    if event_type == cbladerf.BLADERF_RF_EVT_RX_FIRST_VALID_HOST_DATA:
+    if event_type in (
+            cbladerf.BLADERF_RF_EVT_RX_FIRST_VALID_HOST_DATA,
+            cbladerf.BLADERF_RF_EVT_RX_DATA_RESUMED):
         return {'iq_valid': True}
     if event_type == cbladerf.BLADERF_RF_EVT_RX_EPOCH_VALID:
         # FPGA admission has opened, but no host META packet has yet crossed
@@ -231,6 +233,8 @@ def _dispatch_rx_data_withheld(callbacks, callback_errors,
 def _rf_event_name(event_type: int) -> str:
     if event_type == cbladerf.BLADERF_RF_EVT_RX_FIRST_VALID_HOST_DATA:
         return 'rx_first_valid_host_data'
+    if event_type == cbladerf.BLADERF_RF_EVT_RX_DATA_RESUMED:
+        return 'rx_data_resumed'
     if event_type == cbladerf.BLADERF_RF_EVT_RX_EPOCH_VALID:
         return 'rx_epoch_valid'
     if event_type == cbladerf.BLADERF_RF_EVT_RX_DATA_INVALIDATED:
