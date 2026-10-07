@@ -109,6 +109,9 @@ RF_WITHHELD_SYNC_TIMEOUT = cbladerf.BLADERF_RF_WITHHELD_SYNC_TIMEOUT
 RF_EVENT_F_FPGA_TIMESTAMP_VALID = (
     cbladerf.BLADERF_RF_EVENT_F_FPGA_TIMESTAMP_VALID)
 RF_EVENT_F_RX_X2_LAYOUT = cbladerf.BLADERF_RF_EVENT_F_RX_X2_LAYOUT
+RF_EVENT_F_TRANSITION_RX2 = cbladerf.BLADERF_RF_EVENT_F_TRANSITION_RX2
+RF_EVENT_F_TRANSITION_CHANNEL_VALID = (
+    cbladerf.BLADERF_RF_EVENT_F_TRANSITION_CHANNEL_VALID)
 RF_INVALIDATE_TUNING_MODE = cbladerf.BLADERF_RF_INVALIDATE_TUNING_MODE
 RF_INVALIDATE_DEVICE_RESET = cbladerf.BLADERF_RF_INVALIDATE_DEVICE_RESET
 RF_INVALIDATE_FPGA_RELOAD = cbladerf.BLADERF_RF_INVALIDATE_FPGA_RELOAD
@@ -204,13 +207,20 @@ def _rf_event_validity_fields(event_type: int, flags: int,
         layout_fields = (
             {'rx_layout': 'RX_X2'}
             if flags & cbladerf.BLADERF_RF_EVENT_F_RX_X2_LAYOUT else {})
+        channel_fields = (
+            {'transition_channel': 'RX2'
+             if flags & cbladerf.BLADERF_RF_EVENT_F_TRANSITION_RX2 else 'RX1'}
+            if flags & cbladerf.BLADERF_RF_EVENT_F_TRANSITION_CHANNEL_VALID
+            else {})
         if flags & PYBLADERF_META_STATUS_OVERRUN:
             # These lifecycle events carry bladerf_metadata.status in flags.
             # A block marked overrun is not a complete valid-IQ boundary even
             # if its epoch tag and timestamp passed the structural checks.
-            return {**timestamp_fields, **layout_fields, **invalid_rx_fields,
+            return {**timestamp_fields, **layout_fields, **channel_fields,
+                    **invalid_rx_fields,
                     'overrun_source': 'metadata_status'}
-        return {**timestamp_fields, **layout_fields, 'iq_valid': True}
+        return {**timestamp_fields, **layout_fields, **channel_fields,
+                'iq_valid': True}
     if event_type == cbladerf.BLADERF_RF_EVT_RX_DATA_INVALIDATED:
         # The native RX epoch is shared by RX1 and RX2. Invalidating its
         # certificate revokes both lanes, including when the configuration

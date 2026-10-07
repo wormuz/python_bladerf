@@ -48,6 +48,8 @@ from python_bladerf.pylibbladerf.pybladerf import (
     RF_INVALIDATE_TUNING_MODE,
     RF_EVENT_F_FPGA_TIMESTAMP_VALID,
     RF_EVENT_F_RX_X2_LAYOUT,
+    RF_EVENT_F_TRANSITION_RX2,
+    RF_EVENT_F_TRANSITION_CHANNEL_VALID,
     PYBLADERF_META_STATUS_OVERRUN,
     RF_WITHHELD_DEVICE_LOST,
     RF_WITHHELD_SHORT_TRANSFER,
@@ -352,8 +354,20 @@ def test_native_rx_integrity_events_explicitly_mark_iq_invalid():
         "iq_valid": True, "rx_layout": "RX_X2",
     }
     assert _rf_event_validity_fields(
-        24, RF_EVENT_F_RX_X2_LAYOUT | PYBLADERF_META_STATUS_OVERRUN) == {
+        13, RF_EVENT_F_TRANSITION_CHANNEL_VALID) == {
+            "iq_valid": True, "transition_channel": "RX1",
+        }
+    assert _rf_event_validity_fields(
+        13, RF_EVENT_F_RX_X2_LAYOUT | RF_EVENT_F_TRANSITION_CHANNEL_VALID |
+        RF_EVENT_F_TRANSITION_RX2) == {
+            "iq_valid": True, "rx_layout": "RX_X2",
+            "transition_channel": "RX2",
+        }
+    assert _rf_event_validity_fields(
+        24, RF_EVENT_F_RX_X2_LAYOUT | RF_EVENT_F_TRANSITION_CHANNEL_VALID |
+        PYBLADERF_META_STATUS_OVERRUN) == {
             **RX_INVALID_FIELDS, "rx_layout": "RX_X2",
+            "transition_channel": "RX1",
             "overrun_source": "metadata_status",
         }
     assert _rf_event_validity_fields(25, 0) == RX_INVALID_FIELDS
