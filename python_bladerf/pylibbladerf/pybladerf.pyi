@@ -1322,7 +1322,9 @@ class PyBladerfDevice:
     def pybladerf_add_rf_event_callback(self, callback: Callable[[dict[str, Any]], Any]) -> None:
         '''Register a callback for RF transitions, RX invalidations,
         stream overruns, unsupported RX formats, event-only RX data-withheld
-        notices, and rf_event_history_lost notifications.'''
+        notices, and rf_event_history_lost notifications. Native history is
+        polled on a daemon thread, so callbacks may run on that thread while
+        another wrapper call is blocked, or synchronously after an API call.'''
         ...
 
     def pybladerf_remove_rf_event_callback(self, callback: Callable[[dict[str, Any]], Any]) -> None:

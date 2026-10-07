@@ -31,12 +31,15 @@ from python_bladerf.pylibbladerf.pybladerf import (
     RF_WITHHELD_USB_TIMEOUT,
     RF_WITHHELD_USB_TRANSFER_ERROR,
     PyBladerfDevice,
+    _rf_event_poll_loop,
     _dispatch_rf_event_batch,
     _dispatch_rx_data_withheld,
     _rf_event_name,
     _rf_event_validity_fields,
     _rf_invalidation_reason,
 )
+import threading
+import weakref
 
 
 def test_rf_invalidation_reason_names_cover_every_public_reason():
@@ -119,6 +122,41 @@ def test_dispatch_without_subscribers_does_not_consume_native_history():
     # available to an explicit rf_events_since() query later.
     device = PyBladerfDevice()
     device.pybladerf_dispatch_rf_events()
+
+
+def test_event_poller_delivers_while_caller_is_blocked():
+    delivered = threading.Event()
+
+    class PollTarget:
+        def dispatch(self):
+            delivered.set()
+
+    target = PollTarget()
+
+    class Dispatcher:
+        def pybladerf_dispatch_rf_events(self):
+            target.dispatch()
+
+    dispatcher = Dispatcher()
+    stop = threading.Event()
+    poller = threading.Thread(
+        target=_rf_event_poll_loop,
+        args=(stop, weakref.ref(dispatcher), 0.005),
+        daemon=True,
+    )
+    poller.start()
+    try:
+        # The calling thread does no wrapper API work while the poller runs.
+        assert delivered.wait(0.5)
+    finally:
+        stop.set()
+        poller.join(timeout=1)
+    assert not poller.is_alive()
+
+
+def test_device_supports_weak_reference_for_poller_lifetime():
+    device = PyBladerfDevice()
+    assert weakref.ref(device)() is device
 
 
 def test_async_rx_withheld_notification_is_explicit_and_invalid():

@@ -103,6 +103,7 @@ cdef class pybladerf_stream:
 
 # ---- WRAPPER ---- #
 cdef class PyBladerfDevice:
+    cdef object __weakref__
     cdef cbladerf.bladerf *__bladerf_device
     cdef public str serialno
     # Last sync_config() arguments per direction, so the stream can be
@@ -114,6 +115,9 @@ cdef class PyBladerfDevice:
     cdef list __rf_event_callback_errors
     cdef uint64_t __rf_event_cursor
     cdef bint __rx_data_withheld
+    cdef object __rf_event_dispatch_lock
+    cdef object __rf_event_poll_stop
+    cdef object __rf_event_poll_thread
 
     cdef cbladerf.bladerf *get_ptr(self)
 

@@ -34,6 +34,8 @@ from enum import IntEnum
 from ctypes import c_int
 from . cimport cbladerf
 import numpy as np
+import threading
+import weakref
 cimport cython
 
 IF ANDROID:
@@ -41,6 +43,20 @@ IF ANDROID:
 
 
 cdef dict global_callbacks = {}
+
+
+def _rf_event_poll_loop(stop_event, device_ref, interval_s: float) -> None:
+    """Deliver native RF events while another wrapper call is blocked."""
+    while not stop_event.wait(interval_s):
+        device = device_ref()
+        if device is None:
+            return
+        try:
+            device.pybladerf_dispatch_rf_events()
+        except Exception as exc:
+            device._record_rf_event_poller_error(exc)
+            return
+        del device
 
 # `flags` on an `rx_data_withheld` native event is a bitmask. Export the
 # timestamp-continuity reason so Python consumers can distinguish it from an
@@ -1594,6 +1610,9 @@ cdef class PyBladerfDevice:
         self.__rf_event_callback_errors = []
         self.__rf_event_cursor = 0
         self.__rx_data_withheld = False
+        self.__rf_event_dispatch_lock = threading.RLock()
+        self.__rf_event_poll_stop = None
+        self.__rf_event_poll_thread = None
 
     def __dealloc__(self):
         global global_callbacks
@@ -1632,6 +1651,8 @@ cdef class PyBladerfDevice:
     # ---- device ---- #
     def pybladerf_close(self) -> None:
         global global_callbacks
+
+        self.__stop_rf_event_poller()
 
         if self.__bladerf_device is not NULL:
             if <size_t> self.__bladerf_device in global_callbacks.keys():
@@ -1715,22 +1736,55 @@ cdef class PyBladerfDevice:
         raise_error('pybladerf_set_gain()', result)
 
     def pybladerf_add_rf_event_callback(self, callback) -> None:
-        """Register a synchronous observer for all RF events, including IQ invalidation."""
+        """Register an observer for all RF events, including IQ invalidation.
+
+        Native history is polled on a daemon thread, so runtime events are
+        delivered while another call such as ``sync_rx`` is blocked. Callback
+        code can therefore run on this poller thread as well as on the thread
+        that completes a wrapper API call.
+        """
         if not callable(callback):
             raise TypeError('callback must be callable')
-        # Start at the current tail so registration never replays old events.
-        tail = self.pybladerf_rf_events_since(self.__rf_event_cursor)
-        self.__rf_event_cursor = tail['next_sequence']
-        self.__rf_event_callbacks.append(callback)
+        with self.__rf_event_dispatch_lock:
+            # Start at the current tail so registration never replays old events.
+            tail = self.pybladerf_rf_events_since(self.__rf_event_cursor)
+            self.__rf_event_cursor = tail['next_sequence']
+            self.__rf_event_callbacks.append(callback)
+            if self.__rf_event_poll_thread is None:
+                stop_event = threading.Event()
+                poller = threading.Thread(
+                    target=_rf_event_poll_loop,
+                    args=(stop_event, weakref.ref(self), 0.02),
+                    name='bladeRF-rf-events',
+                    daemon=True,
+                )
+                self.__rf_event_poll_stop = stop_event
+                self.__rf_event_poll_thread = poller
+                poller.start()
 
     def pybladerf_remove_rf_event_callback(self, callback) -> None:
-        self.__rf_event_callbacks.remove(callback)
+        with self.__rf_event_dispatch_lock:
+            self.__rf_event_callbacks.remove(callback)
+
+    def __stop_rf_event_poller(self) -> None:
+        stop_event = self.__rf_event_poll_stop
+        poller = self.__rf_event_poll_thread
+        if stop_event is not None:
+            stop_event.set()
+        if poller is not None and poller is not threading.current_thread():
+            poller.join()
+        self.__rf_event_poll_stop = None
+        self.__rf_event_poll_thread = None
 
     def pybladerf_get_rf_event_callback_errors(self, clear: bool = False) -> list:
         errors = list(self.__rf_event_callback_errors)
         if clear:
             self.__rf_event_callback_errors.clear()
         return errors
+
+    def _record_rf_event_poller_error(self, exc) -> None:
+        self.__rf_event_callback_errors.append({
+            'error': 'RF event poller failed', 'detail': repr(exc)})
 
     def pybladerf_rf_events_since(self, after_sequence=None) -> dict:
         cdef cbladerf.bladerf_rf_event events[64]
@@ -1775,17 +1829,26 @@ cdef class PyBladerfDevice:
         # bounded C ring is the unconditional notification channel.
         if not self.__rf_event_callbacks:
             return
-        previous_cursor = self.__rf_event_cursor
-        result = self.pybladerf_rf_events_since()
-        self.__rf_event_cursor = result['next_sequence']
-        if any(event['event_name'] == 'rx_data_withheld'
-               for event in result['events']):
-            # The native event is richer and durable; do not also synthesize
-            # the generic event-only callback notice for the same withheld run.
-            self.__rx_data_withheld = True
-        _dispatch_rf_event_batch(self.__rf_event_callbacks,
-                                 self.__rf_event_callback_errors, result,
-                                 previous_cursor)
+        # If another thread is running user callback code, an API-completion
+        # dispatch must not wait behind it. In particular, a blocked callback
+        # may be waiting for a lock held by the thread returning from sync_rx.
+        # The poller will drain any events left behind on its next pass.
+        if not self.__rf_event_dispatch_lock.acquire(False):
+            return
+        try:
+            previous_cursor = self.__rf_event_cursor
+            result = self.pybladerf_rf_events_since()
+            self.__rf_event_cursor = result['next_sequence']
+            if any(event['event_name'] == 'rx_data_withheld'
+                   for event in result['events']):
+                # The native event is richer and durable; do not also synthesize
+                # the generic event-only callback notice for the same withheld run.
+                self.__rx_data_withheld = True
+            _dispatch_rf_event_batch(self.__rf_event_callbacks,
+                                     self.__rf_event_callback_errors, result,
+                                     previous_cursor)
+        finally:
+            self.__rf_event_dispatch_lock.release()
 
     def pybladerf_dispatch_rx_data_withheld(self) -> None:
         self.__rx_data_withheld = _dispatch_rx_data_withheld(
