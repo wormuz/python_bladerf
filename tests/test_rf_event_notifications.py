@@ -45,6 +45,7 @@ from python_bladerf.pylibbladerf.pybladerf import (
     RF_INVALIDATE_STREAM_CONFIG,
     RF_INVALIDATE_TUNING_MODE,
     RF_EVENT_F_FPGA_TIMESTAMP_VALID,
+    PYBLADERF_META_STATUS_OVERRUN,
     RF_WITHHELD_DEVICE_LOST,
     RF_WITHHELD_SHORT_TRANSFER,
     RF_WITHHELD_SYNC_TIMEOUT,
@@ -300,6 +301,15 @@ def test_timestamp_discontinuity_reason_is_public():
     assert _rf_event_validity_fields(
         24, RF_EVENT_F_FPGA_TIMESTAMP_VALID) == {
             "iq_valid": True, "fpga_timestamp_valid": True,
+        }
+    for event_type in (13, 24):
+        assert _rf_event_validity_fields(
+            event_type,
+            RF_EVENT_F_FPGA_TIMESTAMP_VALID | PYBLADERF_META_STATUS_OVERRUN,
+        ) == {
+            **RX_INVALID_FIELDS,
+            "fpga_timestamp_valid": True,
+            "overrun_source": "metadata_status",
         }
     assert _rf_event_validity_fields(22, RF_WITHHELD_USB_OVERFLOW) == {
         **RX_INVALID_FIELDS,

@@ -198,6 +198,12 @@ def _rf_event_validity_fields(event_type: int, flags: int,
     if event_type in (
             cbladerf.BLADERF_RF_EVT_RX_FIRST_VALID_HOST_DATA,
             cbladerf.BLADERF_RF_EVT_RX_DATA_RESUMED):
+        if flags & PYBLADERF_META_STATUS_OVERRUN:
+            # These lifecycle events carry bladerf_metadata.status in flags.
+            # A block marked overrun is not a complete valid-IQ boundary even
+            # if its epoch tag and timestamp passed the structural checks.
+            return {**timestamp_fields, **invalid_rx_fields,
+                    'overrun_source': 'metadata_status'}
         return {**timestamp_fields, 'iq_valid': True}
     if event_type == cbladerf.BLADERF_RF_EVT_RX_DATA_INVALIDATED:
         # The native RX epoch is shared by RX1 and RX2. Invalidating its

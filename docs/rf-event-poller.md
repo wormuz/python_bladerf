@@ -15,7 +15,10 @@ of truth; without subscribers, API calls do not consume it.
 `rx_stream_overrun` notifications always set `iq_valid=False` and now expose
 `overrun_source` as `fpga_rx_loss_counter`, `sync_rx_queue`,
 `async_usb_transport`, `timestamp_discontinuity`, or `runtime_state_fault`.
-Events carrying more than one source return a list. Generic host-integrity
+Events carrying more than one source return a list. A first-valid/resumed
+host-data lifecycle event whose embedded META status has `OVERRUN` is marked
+invalid with `overrun_source=metadata_status`; epoch/timestamp agreement alone
+does not make an incomplete block valid. Generic host-integrity
 events from older libbladeRF builds retain `host_stream_integrity`.
 Sync queue events also set `overrun_detail` to identify ring exhaustion
 (`sync_rx_ring_full`), reorder-window overflow
