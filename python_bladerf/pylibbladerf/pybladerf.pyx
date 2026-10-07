@@ -105,6 +105,8 @@ def _rf_invalidation_reason(event_type: int, flags: int):
 
 def _rf_event_validity_fields(event_type: int, flags: int) -> dict:
     if event_type in (
+            cbladerf.BLADERF_RF_EVT_RX_EPOCH_INVALID,
+            cbladerf.BLADERF_RF_EVT_ERROR,
             cbladerf.BLADERF_RF_EVT_RX_DATA_INVALIDATED,
             cbladerf.BLADERF_RF_EVT_RX_STREAM_OVERRUN,
             cbladerf.BLADERF_RF_EVT_RX_FORMAT_UNSUPPORTED,

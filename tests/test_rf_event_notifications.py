@@ -157,8 +157,11 @@ def test_timestamp_discontinuity_reason_is_public():
 
 
 def test_native_rx_integrity_events_explicitly_mark_iq_invalid():
-    # Public event IDs: invalidation=19, stream-overrun=20,
-    # unsupported-format=21, withheld=22, epoch-abort-failed=23.
+    # Public event IDs: epoch-invalid=8, error=10, invalidation=19,
+    # stream-overrun=20, unsupported-format=21, withheld=22,
+    # epoch-abort-failed=23.
+    assert _rf_event_validity_fields(8, 0) == {"iq_valid": False}
+    assert _rf_event_validity_fields(10, 0) == {"iq_valid": False}
     assert _rf_event_validity_fields(19, RF_INVALIDATE_GAIN) == {
         "iq_valid": False,
     }
