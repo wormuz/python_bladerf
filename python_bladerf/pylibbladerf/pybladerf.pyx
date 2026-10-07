@@ -71,6 +71,8 @@ RF_WITHHELD_USB_TRANSFER_ERROR = (
 RF_WITHHELD_USB_TIMEOUT = cbladerf.BLADERF_RF_WITHHELD_USB_TIMEOUT
 RF_WITHHELD_DEVICE_LOST = cbladerf.BLADERF_RF_WITHHELD_DEVICE_LOST
 RF_WITHHELD_SYNC_TIMEOUT = cbladerf.BLADERF_RF_WITHHELD_SYNC_TIMEOUT
+RF_EVENT_F_FPGA_TIMESTAMP_VALID = (
+    cbladerf.BLADERF_RF_EVENT_F_FPGA_TIMESTAMP_VALID)
 RF_INVALIDATE_TUNING_MODE = cbladerf.BLADERF_RF_INVALIDATE_TUNING_MODE
 RF_INVALIDATE_DEVICE_RESET = cbladerf.BLADERF_RF_INVALIDATE_DEVICE_RESET
 RF_INVALIDATE_FPGA_RELOAD = cbladerf.BLADERF_RF_INVALIDATE_FPGA_RELOAD
@@ -104,14 +106,19 @@ def _rf_invalidation_reason(event_type: int, flags: int):
 
 
 def _rf_event_validity_fields(event_type: int, flags: int) -> dict:
+    timestamp_fields = (
+        {'fpga_timestamp_valid': True}
+        if flags & cbladerf.BLADERF_RF_EVENT_F_FPGA_TIMESTAMP_VALID
+        else {}
+    )
     if event_type in (
             cbladerf.BLADERF_RF_EVT_RX_FIRST_VALID_HOST_DATA,
             cbladerf.BLADERF_RF_EVT_RX_DATA_RESUMED):
-        return {'iq_valid': True}
+        return {**timestamp_fields, 'iq_valid': True}
     if event_type == cbladerf.BLADERF_RF_EVT_RX_EPOCH_VALID:
         # FPGA admission has opened, but no host META packet has yet crossed
         # the epoch/timestamp validator.
-        return {'iq_valid': False, 'rx_epoch_valid': True}
+        return {**timestamp_fields, 'iq_valid': False, 'rx_epoch_valid': True}
     if event_type in (
             cbladerf.BLADERF_RF_EVT_CONFIG_ACCEPTED,
             cbladerf.BLADERF_RF_EVT_SPI_DONE,
@@ -134,7 +141,7 @@ def _rf_event_validity_fields(event_type: int, flags: int) -> dict:
             cbladerf.BLADERF_RF_EVT_RX_STREAM_OVERRUN,
             cbladerf.BLADERF_RF_EVT_RX_FORMAT_UNSUPPORTED,
             cbladerf.BLADERF_RF_EVT_RX_EPOCH_ABORT_FAILED):
-        return {'iq_valid': False}
+        return {**timestamp_fields, 'iq_valid': False}
     if event_type != cbladerf.BLADERF_RF_EVT_RX_DATA_WITHHELD:
         return {}
     reasons = {
@@ -148,7 +155,9 @@ def _rf_event_validity_fields(event_type: int, flags: int) -> dict:
         RF_WITHHELD_DEVICE_LOST: 'device_lost',
         RF_WITHHELD_SYNC_TIMEOUT: 'sync_timeout',
     }
-    return {'iq_valid': False, 'withheld_reason': reasons.get(flags, 'unknown')}
+    reason = flags & ~RF_EVENT_F_FPGA_TIMESTAMP_VALID
+    return {**timestamp_fields, 'iq_valid': False,
+            'withheld_reason': reasons.get(reason, 'unknown')}
 
 def _rf_event_notifications(events, history_complete: bool,
                             after_sequence: int, observed_sequence: int) -> list:

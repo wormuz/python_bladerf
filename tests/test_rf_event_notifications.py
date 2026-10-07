@@ -17,6 +17,7 @@ from python_bladerf.pylibbladerf.pybladerf import (
     RF_INVALIDATE_SAMPLE_RATE,
     RF_INVALIDATE_STREAM_CONFIG,
     RF_INVALIDATE_TUNING_MODE,
+    RF_EVENT_F_FPGA_TIMESTAMP_VALID,
     RF_WITHHELD_DEVICE_LOST,
     RF_WITHHELD_SHORT_TRANSFER,
     RF_WITHHELD_SYNC_TIMEOUT,
@@ -144,6 +145,17 @@ def test_timestamp_discontinuity_reason_is_public():
         "iq_valid": False,
         "withheld_reason": "short_transfer",
     }
+    timestamped_withheld = _rf_event_validity_fields(
+        22, RF_WITHHELD_SHORT_TRANSFER | RF_EVENT_F_FPGA_TIMESTAMP_VALID)
+    assert timestamped_withheld == {
+        "iq_valid": False,
+        "withheld_reason": "short_transfer",
+        "fpga_timestamp_valid": True,
+    }
+    assert _rf_event_validity_fields(
+        24, RF_EVENT_F_FPGA_TIMESTAMP_VALID) == {
+            "iq_valid": True, "fpga_timestamp_valid": True,
+        }
     assert _rf_event_validity_fields(22, RF_WITHHELD_USB_OVERFLOW) == {
         "iq_valid": False,
         "withheld_reason": "usb_overflow",
