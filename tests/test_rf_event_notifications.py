@@ -17,6 +17,13 @@ from python_bladerf.pylibbladerf.pybladerf import (
     RF_REQUIRE_EPOCH_VALID,
     RF_REQUIRE_BBPLL_LOCKED,
     RF_STREAM_STATUS_FPGA_RX_LOSS,
+    RF_STREAM_STATUS_SYNC_RX_QUEUE,
+    RF_STREAM_STATUS_ASYNC_USB,
+    RF_STREAM_STATUS_TIMESTAMP_DISCONTINUITY,
+    RF_STREAM_STATUS_RUNTIME_STATE_FAULT,
+    RF_STREAM_STATUS_SYNC_RX_RING_FULL,
+    RF_STREAM_STATUS_SYNC_RX_REORDER,
+    RF_STREAM_STATUS_SYNC_RX_SEQUENCE_TRACKER,
     RF_INVALIDATE_CLOCK,
     RF_INVALIDATE_CORRECTION,
     RF_INVALIDATE_DEVICE_RESET,
@@ -322,6 +329,47 @@ def test_native_rx_integrity_events_explicitly_mark_iq_invalid():
     assert _rf_event_validity_fields(20, RF_STREAM_STATUS_FPGA_RX_LOSS) == {
         "iq_valid": False, "overrun_source": "fpga_rx_loss_counter",
     }
+    assert _rf_event_validity_fields(20, RF_STREAM_STATUS_SYNC_RX_QUEUE) == {
+        "iq_valid": False, "overrun_source": "sync_rx_queue",
+    }
+    assert _rf_event_validity_fields(
+        20, RF_STREAM_STATUS_SYNC_RX_QUEUE |
+        RF_STREAM_STATUS_SYNC_RX_RING_FULL) == {
+            "iq_valid": False,
+            "overrun_source": "sync_rx_queue",
+            "overrun_detail": "sync_rx_ring_full",
+        }
+    assert _rf_event_validity_fields(
+        20, RF_STREAM_STATUS_SYNC_RX_QUEUE |
+        RF_STREAM_STATUS_SYNC_RX_REORDER) == {
+            "iq_valid": False,
+            "overrun_source": "sync_rx_queue",
+            "overrun_detail": "sync_rx_reorder_window",
+        }
+    assert _rf_event_validity_fields(
+        20, RF_STREAM_STATUS_SYNC_RX_QUEUE |
+        RF_STREAM_STATUS_SYNC_RX_SEQUENCE_TRACKER) == {
+            "iq_valid": False,
+            "overrun_source": "sync_rx_queue",
+            "overrun_detail": "sync_rx_sequence_tracker_full",
+        }
+    assert _rf_event_validity_fields(20, RF_STREAM_STATUS_ASYNC_USB) == {
+        "iq_valid": False, "overrun_source": "async_usb_transport",
+    }
+    assert _rf_event_validity_fields(
+        20, RF_STREAM_STATUS_TIMESTAMP_DISCONTINUITY) == {
+            "iq_valid": False,
+            "overrun_source": "timestamp_discontinuity",
+        }
+    assert _rf_event_validity_fields(
+        20, RF_STREAM_STATUS_RUNTIME_STATE_FAULT) == {
+            "iq_valid": False, "overrun_source": "runtime_state_fault",
+        }
+    assert _rf_event_validity_fields(
+        20, RF_STREAM_STATUS_SYNC_RX_QUEUE | RF_STREAM_STATUS_ASYNC_USB) == {
+            "iq_valid": False,
+            "overrun_source": ["sync_rx_queue", "async_usb_transport"],
+        }
     assert _rf_event_validity_fields(22, RF_WITHHELD_USB_TIMEOUT) == {
         "iq_valid": False,
         "withheld_reason": "usb_timeout",

@@ -130,6 +130,20 @@ RF_INVALIDATE_FPGA_RX_LOSS_STATUS_UNAVAILABLE = (
 RF_STREAM_STATUS_OVERRUN = cbladerf.BLADERF_RF_STREAM_STATUS_OVERRUN
 RF_STREAM_STATUS_FPGA_RX_LOSS = (
     cbladerf.BLADERF_RF_STREAM_STATUS_FPGA_RX_LOSS)
+RF_STREAM_STATUS_SYNC_RX_QUEUE = (
+    cbladerf.BLADERF_RF_STREAM_STATUS_SYNC_RX_QUEUE)
+RF_STREAM_STATUS_ASYNC_USB = (
+    cbladerf.BLADERF_RF_STREAM_STATUS_ASYNC_USB)
+RF_STREAM_STATUS_TIMESTAMP_DISCONTINUITY = (
+    cbladerf.BLADERF_RF_STREAM_STATUS_TIMESTAMP_DISCONTINUITY)
+RF_STREAM_STATUS_RUNTIME_STATE_FAULT = (
+    cbladerf.BLADERF_RF_STREAM_STATUS_RUNTIME_STATE_FAULT)
+RF_STREAM_STATUS_SYNC_RX_RING_FULL = (
+    cbladerf.BLADERF_RF_STREAM_STATUS_SYNC_RX_RING_FULL)
+RF_STREAM_STATUS_SYNC_RX_REORDER = (
+    cbladerf.BLADERF_RF_STREAM_STATUS_SYNC_RX_REORDER)
+RF_STREAM_STATUS_SYNC_RX_SEQUENCE_TRACKER = (
+    cbladerf.BLADERF_RF_STREAM_STATUS_SYNC_RX_SEQUENCE_TRACKER)
 
 
 def _rf_invalidation_reason(event_type: int, flags: int):
@@ -204,11 +218,30 @@ def _rf_event_validity_fields(event_type: int, flags: int,
         # the epoch/timestamp validator.
         return {**timestamp_fields, 'iq_valid': False, 'rx_epoch_valid': True}
     if event_type == cbladerf.BLADERF_RF_EVT_RX_STREAM_OVERRUN:
-        source = ('fpga_rx_loss_counter'
-                  if flags & RF_STREAM_STATUS_FPGA_RX_LOSS
-                  else 'host_stream_integrity')
-        return {**timestamp_fields, 'iq_valid': False,
-                'overrun_source': source}
+        source_flags = (
+            (RF_STREAM_STATUS_FPGA_RX_LOSS, 'fpga_rx_loss_counter'),
+            (RF_STREAM_STATUS_SYNC_RX_QUEUE, 'sync_rx_queue'),
+            (RF_STREAM_STATUS_ASYNC_USB, 'async_usb_transport'),
+            (RF_STREAM_STATUS_TIMESTAMP_DISCONTINUITY,
+             'timestamp_discontinuity'),
+            (RF_STREAM_STATUS_RUNTIME_STATE_FAULT, 'runtime_state_fault'),
+        )
+        sources = [name for bit, name in source_flags if flags & bit]
+        if not sources:
+            sources = ['host_stream_integrity']
+        detail_flags = (
+            (RF_STREAM_STATUS_SYNC_RX_RING_FULL, 'sync_rx_ring_full'),
+            (RF_STREAM_STATUS_SYNC_RX_REORDER, 'sync_rx_reorder_window'),
+            (RF_STREAM_STATUS_SYNC_RX_SEQUENCE_TRACKER,
+             'sync_rx_sequence_tracker_full'),
+        )
+        details = [name for bit, name in detail_flags if flags & bit]
+        result = {**timestamp_fields, 'iq_valid': False,
+                  'overrun_source': sources[0] if len(sources) == 1 else sources}
+        if details:
+            result['overrun_detail'] = (
+                details[0] if len(details) == 1 else details)
+        return result
     if event_type in (
             cbladerf.BLADERF_RF_EVT_CONFIG_ACCEPTED,
             cbladerf.BLADERF_RF_EVT_SPI_DONE,
