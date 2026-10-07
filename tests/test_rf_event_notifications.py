@@ -6,6 +6,7 @@ from python_bladerf.pylibbladerf.pybladerf import (
     RF_INVALIDATE_RFIC_PLL_UNLOCKED,
     RF_INVALIDATE_RFIC_ENSM_NOT_RX,
     RF_INVALIDATE_RFIC_STATUS_UNAVAILABLE,
+    RF_INVALIDATE_RFIC_BBPLL_UNLOCKED,
     RF_INVALIDATE_CLOCK,
     RF_INVALIDATE_CORRECTION,
     RF_INVALIDATE_DEVICE_RESET,
@@ -68,6 +69,7 @@ def test_rf_invalidation_reason_names_cover_every_public_reason():
         (RF_INVALIDATE_RFIC_PLL_UNLOCKED, "rfic_pll_unlocked"),
         (RF_INVALIDATE_RFIC_ENSM_NOT_RX, "rfic_ensm_not_rx"),
         (RF_INVALIDATE_RFIC_STATUS_UNAVAILABLE, "rfic_status_unavailable"),
+        (RF_INVALIDATE_RFIC_BBPLL_UNLOCKED, "rfic_bbpll_unlocked"),
     ]
     assert len({flag for flag, _ in reasons}) == len(reasons)
     assert all(_rf_invalidation_reason(19, flag) == name
@@ -181,6 +183,7 @@ def test_unsupported_format_has_public_event_name():
     assert _rf_event_name(22) == "rx_data_withheld"
     assert _rf_event_name(23) == "rx_epoch_abort_failed"
     assert _rf_event_name(24) == "rx_data_resumed"
+    assert _rf_event_name(25) == "rx_bbpll_locked"
 
 
 def test_timestamp_discontinuity_reason_is_public():
@@ -221,10 +224,10 @@ def test_timestamp_discontinuity_reason_is_public():
 
 
 def test_native_rx_integrity_events_explicitly_mark_iq_invalid():
-    # Public RF event IDs 0..24 cover transition, data-validity, and
+    # Public RF event IDs 0..25 cover transition, data-validity, and
     # transport-integrity events. Every known event is explicit: only the
     # first or resumed host-validated META packet can set iq_valid=True.
-    for event_type in set(range(25)) - {9, 13, 22, 24}:
+    for event_type in set(range(26)) - {9, 13, 22, 24}:
         assert _rf_event_validity_fields(event_type, 0) == {
             "iq_valid": False,
         }
@@ -233,11 +236,12 @@ def test_native_rx_integrity_events_explicitly_mark_iq_invalid():
     }
     assert _rf_event_validity_fields(13, 0) == {"iq_valid": True}
     assert _rf_event_validity_fields(24, 0) == {"iq_valid": True}
+    assert _rf_event_validity_fields(25, 0) == {"iq_valid": False}
     assert _rf_event_validity_fields(22, RF_WITHHELD_USB_TIMEOUT) == {
         "iq_valid": False,
         "withheld_reason": "usb_timeout",
     }
-    assert _rf_event_validity_fields(25, 0) == {}
+    assert _rf_event_validity_fields(26, 0) == {}
 
 
 def test_lo_pll_calibration_and_nios_intermediate_events_are_invalid():

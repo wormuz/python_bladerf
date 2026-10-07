@@ -100,6 +100,8 @@ RF_INVALIDATE_RFIC_PLL_UNLOCKED = cbladerf.BLADERF_RF_INVALIDATE_RFIC_PLL_UNLOCK
 RF_INVALIDATE_RFIC_ENSM_NOT_RX = cbladerf.BLADERF_RF_INVALIDATE_RFIC_ENSM_NOT_RX
 RF_INVALIDATE_RFIC_STATUS_UNAVAILABLE = (
     cbladerf.BLADERF_RF_INVALIDATE_RFIC_STATUS_UNAVAILABLE)
+RF_INVALIDATE_RFIC_BBPLL_UNLOCKED = (
+    cbladerf.BLADERF_RF_INVALIDATE_RFIC_BBPLL_UNLOCKED)
 
 
 def _rf_invalidation_reason(event_type: int, flags: int):
@@ -129,6 +131,7 @@ def _rf_invalidation_reason(event_type: int, flags: int):
         RF_INVALIDATE_RFIC_PLL_UNLOCKED: 'rfic_pll_unlocked',
         RF_INVALIDATE_RFIC_ENSM_NOT_RX: 'rfic_ensm_not_rx',
         RF_INVALIDATE_RFIC_STATUS_UNAVAILABLE: 'rfic_status_unavailable',
+        RF_INVALIDATE_RFIC_BBPLL_UNLOCKED: 'rfic_bbpll_unlocked',
     }
     return reasons.get(flags, 'unknown')
 
@@ -168,7 +171,8 @@ def _rf_event_validity_fields(event_type: int, flags: int) -> dict:
             cbladerf.BLADERF_RF_EVT_RX_DATA_INVALIDATED,
             cbladerf.BLADERF_RF_EVT_RX_STREAM_OVERRUN,
             cbladerf.BLADERF_RF_EVT_RX_FORMAT_UNSUPPORTED,
-            cbladerf.BLADERF_RF_EVT_RX_EPOCH_ABORT_FAILED):
+            cbladerf.BLADERF_RF_EVT_RX_EPOCH_ABORT_FAILED,
+            cbladerf.BLADERF_RF_EVT_RX_BBPLL_LOCKED):
         return {**timestamp_fields, 'iq_valid': False}
     if event_type != cbladerf.BLADERF_RF_EVT_RX_DATA_WITHHELD:
         return {}
@@ -272,6 +276,8 @@ def _rf_event_name(event_type: int) -> str:
         return 'rx_first_valid_host_data'
     if event_type == cbladerf.BLADERF_RF_EVT_RX_DATA_RESUMED:
         return 'rx_data_resumed'
+    if event_type == cbladerf.BLADERF_RF_EVT_RX_BBPLL_LOCKED:
+        return 'rx_bbpll_locked'
     if event_type == cbladerf.BLADERF_RF_EVT_RX_EPOCH_VALID:
         return 'rx_epoch_valid'
     if event_type == cbladerf.BLADERF_RF_EVT_RX_DATA_INVALIDATED:
