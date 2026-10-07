@@ -63,6 +63,11 @@ from python_bladerf.pylibbladerf.pybladerf import (
 import threading
 import weakref
 
+RX_INVALID_FIELDS = {
+    "iq_valid": False,
+    "affected_rx_channels": ["RX1", "RX2"],
+}
+
 
 def test_rx_transition_requirement_flags_are_named_and_composable():
     requirements = [
@@ -278,17 +283,17 @@ def test_unsupported_format_has_public_event_name():
 def test_timestamp_discontinuity_reason_is_public():
     assert RF_WITHHELD_TIMESTAMP_DISCONTINUITY == 1 << 2
     assert _rf_event_validity_fields(22, RF_WITHHELD_TIMESTAMP_DISCONTINUITY) == {
-        "iq_valid": False,
+        **RX_INVALID_FIELDS,
         "withheld_reason": "timestamp_discontinuity",
     }
     assert _rf_event_validity_fields(22, RF_WITHHELD_SHORT_TRANSFER) == {
-        "iq_valid": False,
+        **RX_INVALID_FIELDS,
         "withheld_reason": "short_transfer",
     }
     timestamped_withheld = _rf_event_validity_fields(
         22, RF_WITHHELD_SHORT_TRANSFER | RF_EVENT_F_FPGA_TIMESTAMP_VALID)
     assert timestamped_withheld == {
-        "iq_valid": False,
+        **RX_INVALID_FIELDS,
         "withheld_reason": "short_transfer",
         "fpga_timestamp_valid": True,
     }
@@ -297,7 +302,7 @@ def test_timestamp_discontinuity_reason_is_public():
             "iq_valid": True, "fpga_timestamp_valid": True,
         }
     assert _rf_event_validity_fields(22, RF_WITHHELD_USB_OVERFLOW) == {
-        "iq_valid": False,
+        **RX_INVALID_FIELDS,
         "withheld_reason": "usb_overflow",
     }
     for reason, name in [
@@ -307,7 +312,7 @@ def test_timestamp_discontinuity_reason_is_public():
         (RF_WITHHELD_DEVICE_LOST, "device_lost"),
     ]:
         assert _rf_event_validity_fields(22, reason) == {
-            "iq_valid": False,
+            **RX_INVALID_FIELDS,
             "withheld_reason": name,
         }
 
@@ -318,76 +323,75 @@ def test_native_rx_integrity_events_explicitly_mark_iq_invalid():
     # first or resumed host-validated META packet can set iq_valid=True.
     for event_type in set(range(26)) - {9, 13, 19, 20, 22, 24}:
         assert _rf_event_validity_fields(event_type, 0) == {
-            "iq_valid": False,
+            **RX_INVALID_FIELDS,
         }
     assert _rf_event_validity_fields(19, RF_INVALIDATE_BANDWIDTH) == {
-        "iq_valid": False,
-        "affected_rx_channels": ["RX1", "RX2"],
+        **RX_INVALID_FIELDS,
     }
     assert _rf_event_validity_fields(9, 0) == {
-        "iq_valid": False, "rx_epoch_valid": True,
+        **RX_INVALID_FIELDS, "rx_epoch_valid": True,
     }
     assert _rf_event_validity_fields(13, 0) == {"iq_valid": True}
     assert _rf_event_validity_fields(24, 0) == {"iq_valid": True}
-    assert _rf_event_validity_fields(25, 0) == {"iq_valid": False}
+    assert _rf_event_validity_fields(25, 0) == RX_INVALID_FIELDS
     assert _rf_event_validity_fields(20, 0) == {
-        "iq_valid": False, "overrun_source": "host_stream_integrity",
+        **RX_INVALID_FIELDS, "overrun_source": "host_stream_integrity",
     }
     assert _rf_event_validity_fields(20, RF_STREAM_STATUS_FPGA_RX_LOSS) == {
-        "iq_valid": False, "overrun_source": "fpga_rx_loss_counter",
+        **RX_INVALID_FIELDS, "overrun_source": "fpga_rx_loss_counter",
     }
     assert _rf_event_validity_fields(20, RF_STREAM_STATUS_SYNC_RX_QUEUE) == {
-        "iq_valid": False, "overrun_source": "sync_rx_queue",
+        **RX_INVALID_FIELDS, "overrun_source": "sync_rx_queue",
     }
     assert _rf_event_validity_fields(
         20, RF_STREAM_STATUS_SYNC_RX_QUEUE |
         RF_STREAM_STATUS_SYNC_RX_RING_FULL) == {
-            "iq_valid": False,
+            **RX_INVALID_FIELDS,
             "overrun_source": "sync_rx_queue",
             "overrun_detail": "sync_rx_ring_full",
         }
     assert _rf_event_validity_fields(
         20, RF_STREAM_STATUS_SYNC_RX_QUEUE |
         RF_STREAM_STATUS_SYNC_RX_REORDER) == {
-            "iq_valid": False,
+            **RX_INVALID_FIELDS,
             "overrun_source": "sync_rx_queue",
             "overrun_detail": "sync_rx_reorder_window",
         }
     assert _rf_event_validity_fields(
         20, RF_STREAM_STATUS_SYNC_RX_QUEUE |
         RF_STREAM_STATUS_SYNC_RX_SEQUENCE_TRACKER) == {
-            "iq_valid": False,
+            **RX_INVALID_FIELDS,
             "overrun_source": "sync_rx_queue",
             "overrun_detail": "sync_rx_sequence_tracker_full",
         }
     assert _rf_event_validity_fields(20, RF_STREAM_STATUS_ASYNC_USB) == {
-        "iq_valid": False, "overrun_source": "async_usb_transport",
+        **RX_INVALID_FIELDS, "overrun_source": "async_usb_transport",
     }
     assert _rf_event_validity_fields(
         20, RF_STREAM_STATUS_TIMESTAMP_DISCONTINUITY) == {
-            "iq_valid": False,
+            **RX_INVALID_FIELDS,
             "overrun_source": "timestamp_discontinuity",
         }
     assert _rf_event_validity_fields(
         20, RF_STREAM_STATUS_RUNTIME_STATE_FAULT) == {
-            "iq_valid": False, "overrun_source": "runtime_state_fault",
+            **RX_INVALID_FIELDS, "overrun_source": "runtime_state_fault",
         }
     assert _rf_event_validity_fields(
         20, RF_STREAM_STATUS_SYNC_RX_QUEUE | RF_STREAM_STATUS_ASYNC_USB) == {
-            "iq_valid": False,
+            **RX_INVALID_FIELDS,
             "overrun_source": ["sync_rx_queue", "async_usb_transport"],
         }
     assert _rf_event_validity_fields(22, RF_WITHHELD_USB_TIMEOUT) == {
-        "iq_valid": False,
+        **RX_INVALID_FIELDS,
         "withheld_reason": "usb_timeout",
     }
     assert _rf_event_validity_fields(26, 0) == {
-        "iq_valid": False,
+        **RX_INVALID_FIELDS,
         "event_type_unknown": True,
     }
     assert _rf_event_validity_fields(
         0x7fffffff, RF_EVENT_F_FPGA_TIMESTAMP_VALID) == {
-            "iq_valid": False,
+            **RX_INVALID_FIELDS,
             "event_type_unknown": True,
             "fpga_timestamp_valid": True,
         }
@@ -400,8 +404,7 @@ def test_fpga_fault_event_exposes_coherent_cause_snapshot():
     assert _rf_event_validity_fields(
         19, RF_INVALIDATE_FPGA_RX_FAULT, causes
     ) == {
-        "iq_valid": False,
-        "affected_rx_channels": ["RX1", "RX2"],
+        **RX_INVALID_FIELDS,
         "fpga_rx_fault_causes": ["gpif_timeout", "fifo_abort"],
     }
 
@@ -411,5 +414,5 @@ def test_lo_pll_calibration_and_nios_intermediate_events_are_invalid():
     # validation and must not leave validity implicit in Python callbacks.
     for event_type in (0, 1, 2, 3, 4, 5, 6, 11, 12, 14, 16, 17, 18):
         assert _rf_event_validity_fields(event_type, 0) == {
-            "iq_valid": False,
+            **RX_INVALID_FIELDS,
         }

@@ -22,20 +22,20 @@ Sync queue events also set `overrun_detail` to identify ring exhaustion
 (`sync_rx_reorder_window`), or a full dropped-sequence tracker
 (`sync_rx_sequence_tracker_full`). Multiple details are returned as a list.
 
-`rx_data_invalidated` notifications include `affected_rx_channels`, currently
-`["RX1", "RX2"]`. Firmware and libbladeRF maintain one RX epoch certificate
-for the shared AD9361 RX LO, so invalidating it revokes both channel consumers
-even if the setter was called through only one RX channel handle. A
-single-channel consumer may ignore its inactive channel; MIMO consumers must
-treat the paired epoch as invalid.
+Every notification with `iq_valid=False` includes
+`affected_rx_channels=["RX1", "RX2"]`. Firmware and libbladeRF maintain one RX
+epoch certificate for the shared AD9361 RX LO and paired stream integrity, so
+an invalid transition, withheld buffer, discontinuity, or incomplete event
+history revokes both channel consumers. A single-channel consumer may ignore
+its inactive channel; MIMO consumers must treat the paired epoch as invalid.
 
 Event types newer than the wrapper are reported with `iq_valid=False` and
 `event_type_unknown=True`, so extending the native event enum remains
 fail-closed for older Python consumers.
 
-An RF history gap or poller read failure also names both affected RX channels.
-Because the event stream may have hidden a shared epoch revocation, consumers
-must treat RX1 and RX2 as invalid until they observe a later valid-data event.
+An RF history gap or poller read failure follows the same shared-channel
+scope. Consumers must treat RX1 and RX2 as invalid until they observe a later
+valid-data event.
 
 Verification:
 

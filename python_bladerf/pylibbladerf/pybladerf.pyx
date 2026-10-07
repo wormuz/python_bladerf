@@ -191,6 +191,10 @@ def _rf_event_validity_fields(event_type: int, flags: int,
         if flags & cbladerf.BLADERF_RF_EVENT_F_FPGA_TIMESTAMP_VALID
         else {}
     )
+    invalid_rx_fields = {
+        'iq_valid': False,
+        'affected_rx_channels': ['RX1', 'RX2'],
+    }
     if event_type in (
             cbladerf.BLADERF_RF_EVT_RX_FIRST_VALID_HOST_DATA,
             cbladerf.BLADERF_RF_EVT_RX_DATA_RESUMED):
@@ -199,8 +203,7 @@ def _rf_event_validity_fields(event_type: int, flags: int,
         # The native RX epoch is shared by RX1 and RX2. Invalidating its
         # certificate revokes both lanes, including when the configuration
         # operation was initiated through only one channel handle.
-        result = {**timestamp_fields, 'iq_valid': False,
-                  'affected_rx_channels': ['RX1', 'RX2']}
+        result = {**timestamp_fields, **invalid_rx_fields}
         if (flags != cbladerf.BLADERF_RF_INVALIDATE_FPGA_RX_FAULT or
                 not (rfic_status &
                      cbladerf.BLADERF_RF_FPGA_RX_FAULT_CAUSES_VALID)):
@@ -223,7 +226,8 @@ def _rf_event_validity_fields(event_type: int, flags: int,
     if event_type == cbladerf.BLADERF_RF_EVT_RX_EPOCH_VALID:
         # FPGA admission has opened, but no host META packet has yet crossed
         # the epoch/timestamp validator.
-        return {**timestamp_fields, 'iq_valid': False, 'rx_epoch_valid': True}
+        return {**timestamp_fields, **invalid_rx_fields,
+                'rx_epoch_valid': True}
     if event_type == cbladerf.BLADERF_RF_EVT_RX_STREAM_OVERRUN:
         source_flags = (
             (RF_STREAM_STATUS_FPGA_RX_LOSS, 'fpga_rx_loss_counter'),
@@ -243,7 +247,7 @@ def _rf_event_validity_fields(event_type: int, flags: int,
              'sync_rx_sequence_tracker_full'),
         )
         details = [name for bit, name in detail_flags if flags & bit]
-        result = {**timestamp_fields, 'iq_valid': False,
+        result = {**timestamp_fields, **invalid_rx_fields,
                   'overrun_source': sources[0] if len(sources) == 1 else sources}
         if details:
             result['overrun_detail'] = (
@@ -271,12 +275,12 @@ def _rf_event_validity_fields(event_type: int, flags: int,
             cbladerf.BLADERF_RF_EVT_RX_FORMAT_UNSUPPORTED,
             cbladerf.BLADERF_RF_EVT_RX_EPOCH_ABORT_FAILED,
             cbladerf.BLADERF_RF_EVT_RX_BBPLL_LOCKED):
-        return {**timestamp_fields, 'iq_valid': False}
+        return {**timestamp_fields, **invalid_rx_fields}
     if event_type != cbladerf.BLADERF_RF_EVT_RX_DATA_WITHHELD:
         # RF event enums can grow independently of this wrapper. An unknown
         # event must never leave sample validity implicit for an older
         # consumer.
-        return {**timestamp_fields, 'iq_valid': False,
+        return {**timestamp_fields, **invalid_rx_fields,
                 'event_type_unknown': True}
     reasons = {
         RF_WITHHELD_EPOCH_UNCERTIFIED: 'epoch_uncertified',
@@ -290,7 +294,7 @@ def _rf_event_validity_fields(event_type: int, flags: int,
         RF_WITHHELD_SYNC_TIMEOUT: 'sync_timeout',
     }
     reason = flags & ~RF_EVENT_F_FPGA_TIMESTAMP_VALID
-    return {**timestamp_fields, 'iq_valid': False,
+    return {**timestamp_fields, **invalid_rx_fields,
             'withheld_reason': reasons.get(reason, 'unknown')}
 
 def _rf_event_notifications(events, history_complete: bool,
@@ -362,6 +366,7 @@ def _rx_data_withheld_notification() -> dict:
         'flags': 0,
         'error_code': None,
         'iq_valid': False,
+        'affected_rx_channels': ['RX1', 'RX2'],
     }
 
 
