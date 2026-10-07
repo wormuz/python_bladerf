@@ -2011,8 +2011,14 @@ cdef class PyBladerfDevice:
             'rfic_status': final_event.rfic_status,
             'fpga_state': int(final_event.fpga_state),
             'event_type': int(final_event.event_type),
+            'event_name': _rf_event_name(final_event.event_type),
             'flags': final_event.flags,
+            'invalidation_reason': _rf_invalidation_reason(
+                final_event.event_type, final_event.flags),
             'error_code': final_event.error_code,
+            **_rf_event_validity_fields(final_event.event_type,
+                                        final_event.flags,
+                                        final_event.rfic_status),
         }
 
     def pybladerf_rx_transition_get_events(self, transaction_id: int) -> dict:
