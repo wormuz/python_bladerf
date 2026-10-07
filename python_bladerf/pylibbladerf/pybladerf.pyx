@@ -80,6 +80,10 @@ RF_INVALIDATE_BOOTLOADER = cbladerf.BLADERF_RF_INVALIDATE_BOOTLOADER
 RF_INVALIDATE_FPGA_RX_FAULT = cbladerf.BLADERF_RF_INVALIDATE_FPGA_RX_FAULT
 RF_INVALIDATE_FPGA_STATUS_UNAVAILABLE = (
     cbladerf.BLADERF_RF_INVALIDATE_FPGA_STATUS_UNAVAILABLE)
+RF_INVALIDATE_RFIC_PLL_UNLOCKED = cbladerf.BLADERF_RF_INVALIDATE_RFIC_PLL_UNLOCKED
+RF_INVALIDATE_RFIC_ENSM_NOT_RX = cbladerf.BLADERF_RF_INVALIDATE_RFIC_ENSM_NOT_RX
+RF_INVALIDATE_RFIC_STATUS_UNAVAILABLE = (
+    cbladerf.BLADERF_RF_INVALIDATE_RFIC_STATUS_UNAVAILABLE)
 
 
 def _rf_invalidation_reason(event_type: int, flags: int):
@@ -106,6 +110,9 @@ def _rf_invalidation_reason(event_type: int, flags: int):
         RF_INVALIDATE_BOOTLOADER: 'bootloader',
         RF_INVALIDATE_FPGA_RX_FAULT: 'fpga_rx_fault',
         RF_INVALIDATE_FPGA_STATUS_UNAVAILABLE: 'fpga_status_unavailable',
+        RF_INVALIDATE_RFIC_PLL_UNLOCKED: 'rfic_pll_unlocked',
+        RF_INVALIDATE_RFIC_ENSM_NOT_RX: 'rfic_ensm_not_rx',
+        RF_INVALIDATE_RFIC_STATUS_UNAVAILABLE: 'rfic_status_unavailable',
     }
     return reasons.get(flags, 'unknown')
 
