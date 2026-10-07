@@ -77,6 +77,7 @@ RF_REQUIRE_ENSM_RX = cbladerf.BLADERF_RF_REQUIRE_ENSM_RX
 RF_REQUIRE_DATAPATH_ARMED = cbladerf.BLADERF_RF_REQUIRE_DATAPATH_ARMED
 RF_REQUIRE_EPOCH_VALID = cbladerf.BLADERF_RF_REQUIRE_EPOCH_VALID
 RF_REQUIRE_BBPLL_LOCKED = cbladerf.BLADERF_RF_REQUIRE_BBPLL_LOCKED
+RF_REQUIRE_FIRST_HOST_DATA = cbladerf.BLADERF_RF_REQUIRE_FIRST_HOST_DATA
 RF_INVALIDATE_GAIN = cbladerf.BLADERF_RF_INVALIDATE_GAIN
 RF_INVALIDATE_GAIN_MODE = cbladerf.BLADERF_RF_INVALIDATE_GAIN_MODE
 RF_INVALIDATE_RF_PORT = cbladerf.BLADERF_RF_INVALIDATE_RF_PORT
@@ -2043,7 +2044,10 @@ cdef class PyBladerfDevice:
         встановлюється до перебудови. Повертає `transaction_id` для
         `pybladerf_rx_transition_wait()` -- НЕ блокує сам по собі.
         `required_events_mask` складається з OR публічних RF_REQUIRE_* бітів;
-        для валідного epoch використовуйте RF_REQUIRE_EPOCH_VALID."""
+        для валідного FPGA epoch використовуйте RF_REQUIRE_EPOCH_VALID.
+        RF_REQUIRE_FIRST_HOST_DATA додатково чекає перший META transfer,
+        перевірений за epoch і timestamp; якщо він не встигає до timeout,
+        пізній перший transfer буде withheld."""
         cdef cbladerf.bladerf_rx_transition_request request
         cdef uint32_t transaction_id
         cdef cbladerf.bladerf_quick_tune *quick_tune_ptr = NULL

@@ -49,6 +49,7 @@ RF_REQUIRE_ENSM_RX: int
 RF_REQUIRE_DATAPATH_ARMED: int
 RF_REQUIRE_EPOCH_VALID: int
 RF_REQUIRE_BBPLL_LOCKED: int
+RF_REQUIRE_FIRST_HOST_DATA: int
 RF_STREAM_STATUS_OVERRUN: int
 RF_STREAM_STATUS_FPGA_RX_LOSS: int
 RF_STREAM_STATUS_SYNC_RX_QUEUE: int
@@ -1606,6 +1607,8 @@ class PyBladerfDevice:
 
         For application-valid IQ, include RF_REQUIRE_EPOCH_VALID. RX1 and RX2
         use PYBLADERF_CHANNEL_RX(0) and PYBLADERF_CHANNEL_RX(1), respectively.
+        RF_REQUIRE_FIRST_HOST_DATA additionally waits for a validated host
+        META transfer; a first transfer after the wait deadline is withheld.
         '''
         ...
 
