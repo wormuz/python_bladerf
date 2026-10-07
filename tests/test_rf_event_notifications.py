@@ -8,6 +8,11 @@ from python_bladerf.pylibbladerf.pybladerf import (
     RF_INVALIDATE_RFIC_STATUS_UNAVAILABLE,
     RF_INVALIDATE_RFIC_BBPLL_UNLOCKED,
     RF_INVALIDATE_FPGA_RX_LOSS_STATUS_UNAVAILABLE,
+    RF_REQUIRE_PLL_LOCKED,
+    RF_REQUIRE_ENSM_RX,
+    RF_REQUIRE_DATAPATH_ARMED,
+    RF_REQUIRE_EPOCH_VALID,
+    RF_REQUIRE_BBPLL_LOCKED,
     RF_STREAM_STATUS_FPGA_RX_LOSS,
     RF_INVALIDATE_CLOCK,
     RF_INVALIDATE_CORRECTION,
@@ -43,6 +48,20 @@ from python_bladerf.pylibbladerf.pybladerf import (
 )
 import threading
 import weakref
+
+
+def test_rx_transition_requirement_flags_are_named_and_composable():
+    requirements = [
+        RF_REQUIRE_PLL_LOCKED,
+        RF_REQUIRE_ENSM_RX,
+        RF_REQUIRE_DATAPATH_ARMED,
+        RF_REQUIRE_EPOCH_VALID,
+        RF_REQUIRE_BBPLL_LOCKED,
+    ]
+    assert requirements == [1 << bit for bit in range(5)]
+    assert len(set(requirements)) == len(requirements)
+    assert (RF_REQUIRE_PLL_LOCKED | RF_REQUIRE_ENSM_RX |
+            RF_REQUIRE_BBPLL_LOCKED | RF_REQUIRE_EPOCH_VALID) == 0x1B
 
 
 def test_rf_invalidation_reason_names_cover_every_public_reason():

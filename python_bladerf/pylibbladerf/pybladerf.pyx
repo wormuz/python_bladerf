@@ -64,6 +64,11 @@ def _rf_event_poll_loop(stop_event, device_ref, interval_s: float) -> None:
 RF_INVALIDATE_FREQUENCY = cbladerf.BLADERF_RF_INVALIDATE_FREQUENCY
 RF_INVALIDATE_SAMPLE_RATE = cbladerf.BLADERF_RF_INVALIDATE_SAMPLE_RATE
 RF_INVALIDATE_BANDWIDTH = cbladerf.BLADERF_RF_INVALIDATE_BANDWIDTH
+RF_REQUIRE_PLL_LOCKED = cbladerf.BLADERF_RF_REQUIRE_PLL_LOCKED
+RF_REQUIRE_ENSM_RX = cbladerf.BLADERF_RF_REQUIRE_ENSM_RX
+RF_REQUIRE_DATAPATH_ARMED = cbladerf.BLADERF_RF_REQUIRE_DATAPATH_ARMED
+RF_REQUIRE_EPOCH_VALID = cbladerf.BLADERF_RF_REQUIRE_EPOCH_VALID
+RF_REQUIRE_BBPLL_LOCKED = cbladerf.BLADERF_RF_REQUIRE_BBPLL_LOCKED
 RF_INVALIDATE_GAIN = cbladerf.BLADERF_RF_INVALIDATE_GAIN
 RF_INVALIDATE_GAIN_MODE = cbladerf.BLADERF_RF_INVALIDATE_GAIN_MODE
 RF_INVALIDATE_RF_PORT = cbladerf.BLADERF_RF_INVALIDATE_RF_PORT
@@ -1916,7 +1921,9 @@ cdef class PyBladerfDevice:
         host-mode `bladerf_set_frequency`; з quick_tune використовує
         NIOS fastlock recall. В обох випадках FPGA epoch fence
         встановлюється до перебудови. Повертає `transaction_id` для
-        `pybladerf_rx_transition_wait()` -- НЕ блокує сам по собі."""
+        `pybladerf_rx_transition_wait()` -- НЕ блокує сам по собі.
+        `required_events_mask` складається з OR публічних RF_REQUIRE_* бітів;
+        для валідного epoch використовуйте RF_REQUIRE_EPOCH_VALID."""
         cdef cbladerf.bladerf_rx_transition_request request
         cdef uint32_t transaction_id
         cdef cbladerf.bladerf_quick_tune *quick_tune_ptr = NULL

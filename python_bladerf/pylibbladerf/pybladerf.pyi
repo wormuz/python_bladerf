@@ -40,6 +40,11 @@ RF_INVALIDATE_RFIC_ENSM_NOT_RX: int
 RF_INVALIDATE_RFIC_STATUS_UNAVAILABLE: int
 RF_INVALIDATE_RFIC_BBPLL_UNLOCKED: int
 RF_INVALIDATE_FPGA_RX_LOSS_STATUS_UNAVAILABLE: int
+RF_REQUIRE_PLL_LOCKED: int
+RF_REQUIRE_ENSM_RX: int
+RF_REQUIRE_DATAPATH_ARMED: int
+RF_REQUIRE_EPOCH_VALID: int
+RF_REQUIRE_BBPLL_LOCKED: int
 RF_STREAM_STATUS_OVERRUN: int
 RF_STREAM_STATUS_FPGA_RX_LOSS: int
 
@@ -1586,6 +1591,11 @@ class PyBladerfDevice:
                                      required_events_mask: int, timeout_ms: int,
                                      require_rx_data_valid: bool = True,
                                      quick_tune: pybladerf_quick_tune | None = None) -> int:
+        '''Begin an event-driven RX transition. The mask is an OR of RF_REQUIRE_* constants.
+
+        For application-valid IQ, include RF_REQUIRE_EPOCH_VALID. RX1 and RX2
+        use PYBLADERF_CHANNEL_RX(0) and PYBLADERF_CHANNEL_RX(1), respectively.
+        '''
         ...
 
     def pybladerf_rx_transition_wait(self, transaction_id: int,
