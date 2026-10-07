@@ -133,6 +133,7 @@ def test_dispatch_synthesizes_history_loss_before_retained_events():
     assert notifications[0]["observed_through_sequence"] == 69
     assert notifications[0]["history_complete"] is False
     assert notifications[0]["iq_valid"] is False
+    assert notifications[0]["affected_rx_channels"] == ["RX1", "RX2"]
     assert received == notifications
     assert errors == [{"error": "RF event history overrun",
                        "history_complete": False}]
@@ -216,6 +217,7 @@ def test_event_poller_reports_transient_failure_and_recovers():
             notifications.append({
                 "event_name": "rf_event_poller_error",
                 "iq_valid": False,
+                "affected_rx_channels": ["RX1", "RX2"],
                 "history_complete": False,
             })
 
@@ -238,6 +240,7 @@ def test_event_poller_reports_transient_failure_and_recovers():
     assert notifications == [{
         "event_name": "rf_event_poller_error",
         "iq_valid": False,
+        "affected_rx_channels": ["RX1", "RX2"],
         "history_complete": False,
     }]
 

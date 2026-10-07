@@ -33,6 +33,10 @@ Event types newer than the wrapper are reported with `iq_valid=False` and
 `event_type_unknown=True`, so extending the native event enum remains
 fail-closed for older Python consumers.
 
+An RF history gap or poller read failure also names both affected RX channels.
+Because the event stream may have hidden a shared epoch revocation, consumers
+must treat RX1 and RX2 as invalid until they observe a later valid-data event.
+
 Verification:
 
 - `tests/test_rf_event_notifications.py` covers transient poll failure,

@@ -316,6 +316,7 @@ def _rf_event_notifications(events, history_complete: bool,
             # A missing event may have revoked the last certificate. The
             # wrapper cannot infer validity from an incomplete history.
             'iq_valid': False,
+            'affected_rx_channels': ['RX1', 'RX2'],
             'history_complete': False,
             'after_sequence': int(after_sequence),
             'observed_through_sequence': int(observed_sequence),
@@ -1906,6 +1907,8 @@ cdef class PyBladerfDevice:
             'flags': 0,
             'error_code': None,
             'iq_valid': False,
+            # A poll failure can hide a device-wide epoch invalidation.
+            'affected_rx_channels': ['RX1', 'RX2'],
             'history_complete': False,
             'detail': repr(exc),
         }
