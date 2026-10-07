@@ -2,6 +2,7 @@ from python_bladerf.pylibbladerf.pybladerf import (
     RF_INVALIDATE_BANDWIDTH,
     RF_INVALIDATE_BOOTLOADER,
     RF_INVALIDATE_FPGA_RX_FAULT,
+    RF_INVALIDATE_FPGA_STATUS_UNAVAILABLE,
     RF_INVALIDATE_CLOCK,
     RF_INVALIDATE_CORRECTION,
     RF_INVALIDATE_DEVICE_RESET,
@@ -57,6 +58,7 @@ def test_rf_invalidation_reason_names_cover_every_public_reason():
         (RF_INVALIDATE_FPGA_RELOAD, "fpga_reload"),
         (RF_INVALIDATE_BOOTLOADER, "bootloader"),
         (RF_INVALIDATE_FPGA_RX_FAULT, "fpga_rx_fault"),
+        (RF_INVALIDATE_FPGA_STATUS_UNAVAILABLE, "fpga_status_unavailable"),
     ]
     assert len({flag for flag, _ in reasons}) == len(reasons)
     assert all(_rf_invalidation_reason(19, flag) == name
