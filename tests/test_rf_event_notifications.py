@@ -160,21 +160,28 @@ def test_timestamp_discontinuity_reason_is_public():
 
 
 def test_native_rx_integrity_events_explicitly_mark_iq_invalid():
-    # Public event IDs: datapath-armed=7, epoch-invalid=8, epoch-valid=9,
-    # error=10, first-host-data=13, control-plane-only=15, invalidation=19,
-    # stream-overrun=20, unsupported-format=21, withheld=22,
-    # epoch-abort-failed=23.
-    assert _rf_event_validity_fields(7, 0) == {"iq_valid": False}
-    assert _rf_event_validity_fields(8, 0) == {"iq_valid": False}
+    # Public RF event IDs 0..23 cover transition, data-validity, and
+    # transport-integrity events. Every known event is explicit: only the
+    # first host-validated META packet can set iq_valid=True.
+    for event_type in set(range(24)) - {9, 13, 22}:
+        assert _rf_event_validity_fields(event_type, 0) == {
+            "iq_valid": False,
+        }
     assert _rf_event_validity_fields(9, 0) == {
         "iq_valid": False, "rx_epoch_valid": True,
     }
-    assert _rf_event_validity_fields(10, 0) == {"iq_valid": False}
     assert _rf_event_validity_fields(13, 0) == {"iq_valid": True}
-    assert _rf_event_validity_fields(15, 0) == {"iq_valid": False}
-    assert _rf_event_validity_fields(19, RF_INVALIDATE_GAIN) == {
+    assert _rf_event_validity_fields(22, RF_WITHHELD_USB_TIMEOUT) == {
         "iq_valid": False,
+        "withheld_reason": "usb_timeout",
     }
-    assert _rf_event_validity_fields(20, 0) == {"iq_valid": False}
-    assert _rf_event_validity_fields(21, 0) == {"iq_valid": False}
-    assert _rf_event_validity_fields(23, 0) == {"iq_valid": False}
+    assert _rf_event_validity_fields(24, 0) == {}
+
+
+def test_lo_pll_calibration_and_nios_intermediate_events_are_invalid():
+    # These are all observed before FPGA epoch admission or host META
+    # validation and must not leave validity implicit in Python callbacks.
+    for event_type in (0, 1, 2, 3, 4, 5, 6, 11, 12, 14, 16, 17, 18):
+        assert _rf_event_validity_fields(event_type, 0) == {
+            "iq_valid": False,
+        }

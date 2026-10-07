@@ -111,8 +111,21 @@ def _rf_event_validity_fields(event_type: int, flags: int) -> dict:
         # the epoch/timestamp validator.
         return {'iq_valid': False, 'rx_epoch_valid': True}
     if event_type in (
+            cbladerf.BLADERF_RF_EVT_CONFIG_ACCEPTED,
+            cbladerf.BLADERF_RF_EVT_SPI_DONE,
+            cbladerf.BLADERF_RF_EVT_RX_PLL_LOCKED,
+            cbladerf.BLADERF_RF_EVT_ENSM_RX,
+            cbladerf.BLADERF_RF_EVT_RX_BBDC_CAL_DONE,
+            cbladerf.BLADERF_RF_EVT_RX_RFDC_CAL_DONE,
+            cbladerf.BLADERF_RF_EVT_RX_QUAD_CAL_DONE,
             cbladerf.BLADERF_RF_EVT_RX_EPOCH_INVALID,
             cbladerf.BLADERF_RF_EVT_ERROR,
+            cbladerf.BLADERF_RF_EVT_LO_SET_RETURNED,
+            cbladerf.BLADERF_RF_EVT_LO_READBACK_MATCH,
+            cbladerf.BLADERF_RF_EVT_SPI_WRITE_BEGIN,
+            cbladerf.BLADERF_RF_EVT_NIOS_RETUNE_BEGIN,
+            cbladerf.BLADERF_RF_EVT_NIOS_RETUNE_USB_OUT_DONE,
+            cbladerf.BLADERF_RF_EVT_NIOS_RETUNE_RESPONSE,
             cbladerf.BLADERF_RF_EVT_RX_DATAPATH_ARMED,
             cbladerf.BLADERF_RF_EVT_CONTROL_PLANE_CONFIRMED,
             cbladerf.BLADERF_RF_EVT_RX_DATA_INVALIDATED,
