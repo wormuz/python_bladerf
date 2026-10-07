@@ -47,15 +47,23 @@ cdef dict global_callbacks = {}
 
 def _rf_event_poll_loop(stop_event, device_ref, interval_s: float) -> None:
     """Deliver native RF events while another wrapper call is blocked."""
-    while not stop_event.wait(interval_s):
+    retry_interval = interval_s
+    outage_reported = False
+    while not stop_event.wait(retry_interval):
         device = device_ref()
         if device is None:
             return
         try:
             device.pybladerf_dispatch_rf_events()
         except Exception as exc:
-            device._record_rf_event_poller_error(exc)
-            return
+            if not outage_reported:
+                device._record_rf_event_poller_error(exc)
+                outage_reported = True
+            retry_interval = min(max(interval_s, retry_interval * 2), 1.0)
+            del device
+            continue
+        retry_interval = interval_s
+        outage_reported = False
         del device
 
 # `flags` on an `rx_data_withheld` native event is a bitmask. Export the
@@ -1841,8 +1849,29 @@ cdef class PyBladerfDevice:
         return errors
 
     def _record_rf_event_poller_error(self, exc) -> None:
+        notification = {
+            'host_monotonic_ns': None,
+            'fpga_timestamp': None,
+            'transaction_id': 0,
+            'epoch_id': 0,
+            'requested_rx_lo_hz': None,
+            'readback_rx_lo_hz': None,
+            'rfic_status': 0,
+            'fpga_state': None,
+            'event_type': None,
+            'event_name': 'rf_event_poller_error',
+            'flags': 0,
+            'error_code': None,
+            'iq_valid': False,
+            'history_complete': False,
+            'detail': repr(exc),
+        }
         self.__rf_event_callback_errors.append({
             'error': 'RF event poller failed', 'detail': repr(exc)})
+        with self.__rf_event_dispatch_lock:
+            callbacks = tuple(self.__rf_event_callbacks)
+        _deliver_rf_event(callbacks, self.__rf_event_callback_errors,
+                          notification)
 
     def pybladerf_rf_events_since(self, after_sequence=None) -> dict:
         cdef cbladerf.bladerf_rf_event events[64]

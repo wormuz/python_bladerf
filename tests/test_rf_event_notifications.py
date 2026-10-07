@@ -190,6 +190,51 @@ def test_event_poller_delivers_while_caller_is_blocked():
     assert not poller.is_alive()
 
 
+def test_event_poller_reports_transient_failure_and_recovers():
+    delivered = threading.Event()
+    notifications = []
+    failures = []
+
+    class Dispatcher:
+        calls = 0
+
+        def pybladerf_dispatch_rf_events(self):
+            self.calls += 1
+            if self.calls == 1:
+                raise OSError("temporary native event read failure")
+            delivered.set()
+
+        def _record_rf_event_poller_error(self, exc):
+            failures.append(repr(exc))
+            notifications.append({
+                "event_name": "rf_event_poller_error",
+                "iq_valid": False,
+                "history_complete": False,
+            })
+
+    dispatcher = Dispatcher()
+    stop = threading.Event()
+    poller = threading.Thread(
+        target=_rf_event_poll_loop,
+        args=(stop, weakref.ref(dispatcher), 0.005),
+        daemon=True,
+    )
+    poller.start()
+    try:
+        assert delivered.wait(0.5)
+    finally:
+        stop.set()
+        poller.join(timeout=1)
+    assert not poller.is_alive()
+    assert dispatcher.calls >= 2
+    assert failures == ["OSError('temporary native event read failure')"]
+    assert notifications == [{
+        "event_name": "rf_event_poller_error",
+        "iq_valid": False,
+        "history_complete": False,
+    }]
+
+
 def test_device_supports_weak_reference_for_poller_lifetime():
     device = PyBladerfDevice()
     assert weakref.ref(device)() is device
