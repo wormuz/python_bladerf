@@ -2,6 +2,9 @@ from python_bladerf.pylibbladerf.pybladerf import (
     RF_INVALIDATE_BANDWIDTH,
     RF_INVALIDATE_BOOTLOADER,
     RF_INVALIDATE_FPGA_RX_FAULT,
+    RF_FPGA_RX_FAULT_CAUSES_VALID,
+    RF_FPGA_RX_FAULT_GPIF_TIMEOUT,
+    RF_FPGA_RX_FAULT_FIFO_ABORT,
     RF_INVALIDATE_FPGA_STATUS_UNAVAILABLE,
     RF_INVALIDATE_RFIC_PLL_UNLOCKED,
     RF_INVALIDATE_RFIC_ENSM_NOT_RX,
@@ -279,6 +282,18 @@ def test_native_rx_integrity_events_explicitly_mark_iq_invalid():
         "withheld_reason": "usb_timeout",
     }
     assert _rf_event_validity_fields(26, 0) == {}
+
+
+def test_fpga_fault_event_exposes_coherent_cause_snapshot():
+    causes = (RF_FPGA_RX_FAULT_CAUSES_VALID |
+              RF_FPGA_RX_FAULT_GPIF_TIMEOUT |
+              RF_FPGA_RX_FAULT_FIFO_ABORT)
+    assert _rf_event_validity_fields(
+        19, RF_INVALIDATE_FPGA_RX_FAULT, causes
+    ) == {
+        "iq_valid": False,
+        "fpga_rx_fault_causes": ["gpif_timeout", "fifo_abort"],
+    }
 
 
 def test_lo_pll_calibration_and_nios_intermediate_events_are_invalid():

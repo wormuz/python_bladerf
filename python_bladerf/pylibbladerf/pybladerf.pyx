@@ -103,6 +103,12 @@ RF_INVALIDATE_DEVICE_RESET = cbladerf.BLADERF_RF_INVALIDATE_DEVICE_RESET
 RF_INVALIDATE_FPGA_RELOAD = cbladerf.BLADERF_RF_INVALIDATE_FPGA_RELOAD
 RF_INVALIDATE_BOOTLOADER = cbladerf.BLADERF_RF_INVALIDATE_BOOTLOADER
 RF_INVALIDATE_FPGA_RX_FAULT = cbladerf.BLADERF_RF_INVALIDATE_FPGA_RX_FAULT
+RF_FPGA_RX_FAULT_CAUSES_VALID = cbladerf.BLADERF_RF_FPGA_RX_FAULT_CAUSES_VALID
+RF_FPGA_RX_FAULT_SPEED_MISMATCH = cbladerf.BLADERF_RF_FPGA_RX_FAULT_SPEED_MISMATCH
+RF_FPGA_RX_FAULT_START_NO_PROGRESS = cbladerf.BLADERF_RF_FPGA_RX_FAULT_START_NO_PROGRESS
+RF_FPGA_RX_FAULT_GPIF_TIMEOUT = cbladerf.BLADERF_RF_FPGA_RX_FAULT_GPIF_TIMEOUT
+RF_FPGA_RX_FAULT_PROTOCOL_ERROR = cbladerf.BLADERF_RF_FPGA_RX_FAULT_PROTOCOL_ERROR
+RF_FPGA_RX_FAULT_FIFO_ABORT = cbladerf.BLADERF_RF_FPGA_RX_FAULT_FIFO_ABORT
 RF_INVALIDATE_FPGA_STATUS_UNAVAILABLE = (
     cbladerf.BLADERF_RF_INVALIDATE_FPGA_STATUS_UNAVAILABLE)
 RF_INVALIDATE_RFIC_PLL_UNLOCKED = cbladerf.BLADERF_RF_INVALIDATE_RFIC_PLL_UNLOCKED
@@ -156,7 +162,8 @@ def _rf_invalidation_reason(event_type: int, flags: int):
     return reasons.get(flags, 'unknown')
 
 
-def _rf_event_validity_fields(event_type: int, flags: int) -> dict:
+def _rf_event_validity_fields(event_type: int, flags: int,
+                              rfic_status: int = 0) -> dict:
     timestamp_fields = (
         {'fpga_timestamp_valid': True}
         if flags & cbladerf.BLADERF_RF_EVENT_F_FPGA_TIMESTAMP_VALID
@@ -166,6 +173,24 @@ def _rf_event_validity_fields(event_type: int, flags: int) -> dict:
             cbladerf.BLADERF_RF_EVT_RX_FIRST_VALID_HOST_DATA,
             cbladerf.BLADERF_RF_EVT_RX_DATA_RESUMED):
         return {**timestamp_fields, 'iq_valid': True}
+    if (event_type == cbladerf.BLADERF_RF_EVT_RX_DATA_INVALIDATED and
+            flags == cbladerf.BLADERF_RF_INVALIDATE_FPGA_RX_FAULT and
+            rfic_status & cbladerf.BLADERF_RF_FPGA_RX_FAULT_CAUSES_VALID):
+        cause_bits = (
+            (cbladerf.BLADERF_RF_FPGA_RX_FAULT_SPEED_MISMATCH,
+             'speed_mismatch'),
+            (cbladerf.BLADERF_RF_FPGA_RX_FAULT_START_NO_PROGRESS,
+             'start_no_progress'),
+            (cbladerf.BLADERF_RF_FPGA_RX_FAULT_GPIF_TIMEOUT,
+             'gpif_timeout'),
+            (cbladerf.BLADERF_RF_FPGA_RX_FAULT_PROTOCOL_ERROR,
+             'protocol_error'),
+            (cbladerf.BLADERF_RF_FPGA_RX_FAULT_FIFO_ABORT,
+             'fifo_abort'),
+        )
+        causes = [name for bit, name in cause_bits if rfic_status & bit]
+        return {**timestamp_fields, 'iq_valid': False,
+                'fpga_rx_fault_causes': causes}
     if event_type == cbladerf.BLADERF_RF_EVT_RX_EPOCH_VALID:
         # FPGA admission has opened, but no host META packet has yet crossed
         # the epoch/timestamp validator.
@@ -1850,7 +1875,8 @@ cdef class PyBladerfDevice:
                 'invalidation_reason': _rf_invalidation_reason(
                     event.event_type, event.flags),
                 'error_code': event.error_code,
-                **_rf_event_validity_fields(event.event_type, event.flags),
+                **_rf_event_validity_fields(event.event_type, event.flags,
+                                            event.rfic_status),
             })
         return {'events': items, 'next_sequence': next_sequence,
                 'history_complete': bool(complete)}
@@ -2024,7 +2050,8 @@ cdef class PyBladerfDevice:
                 'invalidation_reason': _rf_invalidation_reason(
                     event.event_type, event.flags),
                 'error_code': event.error_code,
-                **_rf_event_validity_fields(event.event_type, event.flags),
+                **_rf_event_validity_fields(event.event_type, event.flags,
+                                            event.rfic_status),
             })
         return {'events': event_list,
                 'history_complete': bool(history_complete)}
