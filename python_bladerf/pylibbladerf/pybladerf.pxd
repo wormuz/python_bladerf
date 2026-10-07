@@ -114,6 +114,7 @@ cdef class PyBladerfDevice:
     cdef list __rf_event_callbacks
     cdef list __rf_event_callback_errors
     cdef uint64_t __rf_event_cursor
+    cdef bint __rf_event_dispatching
     cdef bint __rx_data_withheld
     cdef object __rf_event_dispatch_lock
     cdef object __rf_event_poll_stop

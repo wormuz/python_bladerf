@@ -1609,6 +1609,7 @@ cdef class PyBladerfDevice:
         self.__rf_event_callbacks = []
         self.__rf_event_callback_errors = []
         self.__rf_event_cursor = 0
+        self.__rf_event_dispatching = False
         self.__rx_data_withheld = False
         self.__rf_event_dispatch_lock = threading.RLock()
         self.__rf_event_poll_stop = None
@@ -1829,12 +1830,18 @@ cdef class PyBladerfDevice:
         # bounded C ring is the unconditional notification channel.
         if not self.__rf_event_callbacks:
             return
+        # The RLock permits callbacks to use wrapper methods that may drain
+        # events. Suppress that recursive drain so a newly appended event
+        # cannot overtake the remainder of the current batch.
+        if self.__rf_event_dispatching:
+            return
         # If another thread is running user callback code, an API-completion
         # dispatch must not wait behind it. In particular, a blocked callback
         # may be waiting for a lock held by the thread returning from sync_rx.
         # The poller will drain any events left behind on its next pass.
         if not self.__rf_event_dispatch_lock.acquire(False):
             return
+        self.__rf_event_dispatching = True
         try:
             previous_cursor = self.__rf_event_cursor
             result = self.pybladerf_rf_events_since()
@@ -1848,6 +1855,7 @@ cdef class PyBladerfDevice:
                                      self.__rf_event_callback_errors, result,
                                      previous_cursor)
         finally:
+            self.__rf_event_dispatching = False
             self.__rf_event_dispatch_lock.release()
 
     def pybladerf_dispatch_rx_data_withheld(self) -> None:
