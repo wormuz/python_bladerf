@@ -102,6 +102,11 @@ RF_INVALIDATE_RFIC_STATUS_UNAVAILABLE = (
     cbladerf.BLADERF_RF_INVALIDATE_RFIC_STATUS_UNAVAILABLE)
 RF_INVALIDATE_RFIC_BBPLL_UNLOCKED = (
     cbladerf.BLADERF_RF_INVALIDATE_RFIC_BBPLL_UNLOCKED)
+RF_INVALIDATE_FPGA_RX_LOSS_STATUS_UNAVAILABLE = (
+    cbladerf.BLADERF_RF_INVALIDATE_FPGA_RX_LOSS_STATUS_UNAVAILABLE)
+RF_STREAM_STATUS_OVERRUN = cbladerf.BLADERF_RF_STREAM_STATUS_OVERRUN
+RF_STREAM_STATUS_FPGA_RX_LOSS = (
+    cbladerf.BLADERF_RF_STREAM_STATUS_FPGA_RX_LOSS)
 
 
 def _rf_invalidation_reason(event_type: int, flags: int):
@@ -132,6 +137,8 @@ def _rf_invalidation_reason(event_type: int, flags: int):
         RF_INVALIDATE_RFIC_ENSM_NOT_RX: 'rfic_ensm_not_rx',
         RF_INVALIDATE_RFIC_STATUS_UNAVAILABLE: 'rfic_status_unavailable',
         RF_INVALIDATE_RFIC_BBPLL_UNLOCKED: 'rfic_bbpll_unlocked',
+        RF_INVALIDATE_FPGA_RX_LOSS_STATUS_UNAVAILABLE:
+            'fpga_rx_loss_status_unavailable',
     }
     return reasons.get(flags, 'unknown')
 
@@ -150,6 +157,12 @@ def _rf_event_validity_fields(event_type: int, flags: int) -> dict:
         # FPGA admission has opened, but no host META packet has yet crossed
         # the epoch/timestamp validator.
         return {**timestamp_fields, 'iq_valid': False, 'rx_epoch_valid': True}
+    if event_type == cbladerf.BLADERF_RF_EVT_RX_STREAM_OVERRUN:
+        source = ('fpga_rx_loss_counter'
+                  if flags & RF_STREAM_STATUS_FPGA_RX_LOSS
+                  else 'host_stream_integrity')
+        return {**timestamp_fields, 'iq_valid': False,
+                'overrun_source': source}
     if event_type in (
             cbladerf.BLADERF_RF_EVT_CONFIG_ACCEPTED,
             cbladerf.BLADERF_RF_EVT_SPI_DONE,
