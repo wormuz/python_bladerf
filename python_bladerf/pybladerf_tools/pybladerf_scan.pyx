@@ -27,6 +27,7 @@ from python_bladerf.pylibbladerf cimport pybladerf as c_pybladerf
 from libc.stdint cimport uint64_t, uint32_t, uint16_t, uint8_t
 from python_bladerf.pylibbladerf cimport cbladerf
 from python_bladerf import pybladerf
+from python_bladerf.sweep_helpers import validate_epoch_block
 from libcpp.atomic cimport atomic
 cimport numpy as cnp
 import numpy as np
@@ -50,10 +51,6 @@ MAX_BASEBAND_FILTER_BANDWIDTHS = 56_000_000  # MHz
 
 cdef atomic[uint8_t] working_sdrs[16]
 cdef dict sdr_ids = {}
-
-cdef struct ScanStep:
-    uint64_t frequency
-    uint64_t schedule_time
 
 def sigint_callback_handler(sig, frame, sdr_id):
     global working_sdrs
@@ -203,21 +200,15 @@ def pybladerf_scan(frequencies: list[int], samples_per_scan: int, queue: object,
     device.pybladerf_sync_config(
         layout=pybladerf.pybladerf_channel_layout.PYBLADERF_RX_X1,
         data_format=pybladerf.pybladerf_format.PYBLADERF_FORMAT_SC8_Q7_META if oversample else pybladerf.pybladerf_format.PYBLADERF_FORMAT_SC16_Q11_META,
-        num_buffers=int(os.environ.get('pybladerf_scan_num_buffers', 4096)),
-        buffer_size=int(os.environ.get('pybladerf_scan_buffer_size', 8192)),
-        num_transfers=int(os.environ.get('pybladerf_scan_num_transfers', 64)),
+        num_buffers=int(os.environ.get('pybladerf_scan_num_buffers', 16)),
+        buffer_size=int(os.environ.get('pybladerf_scan_buffer_size', 65536)),
+        num_transfers=int(os.environ.get('pybladerf_scan_num_transfers', 8)),
         stream_timeout=0,
     )
     device.pybladerf_enable_module(formated_channel, True)
 
-    cdef uint64_t time_1ms = int(sample_rate // 1000)
-    cdef uint64_t await_time = int(time_1ms * float(os.environ.get('pybladerf_scan_await_time', 1.5)))
     cdef uint16_t tune_steps = len(calculated_frequencies)
-
-    cdef uint8_t free_rffe_profile = 0
     cdef uint8_t rffe_profiles = min(8, tune_steps)
-
-    cdef uint64_t schedule_timestamp = 0
     cdef double time_start = time.time()
     cdef double time_prev = time.time()
     cdef double timestamp = time.time()
@@ -225,86 +216,56 @@ def pybladerf_scan(frequencies: list[int], samples_per_scan: int, queue: object,
     cdef double scan_rate = 0
     cdef double time_now = 0
     cdef uint64_t scan_count = 0
+    cdef uint64_t accepted_samples = 0
     cdef uint32_t tune_step = 0
-
-    cdef uint8_t scan_step_write_ptr = 0
-    cdef uint8_t scan_step_read_ptr = 0
-    cdef ScanStep[8] scan_steps
-
-    cdef c_pybladerf.pybladerf_metadata meta = pybladerf.pybladerf_metadata()
-
-    cdef cnp.ndarray buffer = np.empty(samples_per_scan if oversample else samples_per_scan * 2, dtype=np.int8 if oversample else np.int16)
+    cdef uint32_t transaction_id
+    cdef uint32_t timeout_ms = int(os.environ.get('pybladerf_scan_transition_timeout_ms', 1000))
+    cdef uint32_t sample_count = int(samples_per_scan)
+    cdef dict transition
+    cdef c_pybladerf.pybladerf_metadata meta
+    cdef cnp.ndarray buffer = np.empty(sample_count * 2, dtype=np.int8 if oversample else np.int16)
     cdef double divider = 1 / (128 if oversample else 2048)
-
-    schedule_timestamp = device.pybladerf_get_timestamp(pybladerf.pybladerf_direction.PYBLADERF_RX) + time_1ms * 150
-
-    for i in range(8):
-        quick_tunes[tune_step][1].rffe_profile = free_rffe_profile
-        device.pybladerf_schedule_retune(formated_channel, schedule_timestamp, 0, quick_tunes[tune_step][1])
-
-        scan_steps[scan_step_write_ptr].frequency = quick_tunes[tune_step][0]
-        scan_steps[scan_step_write_ptr].schedule_time = schedule_timestamp + await_time
-        scan_step_write_ptr = (scan_step_write_ptr + 1) % 8
-
-        free_rffe_profile = (free_rffe_profile + 1) % rffe_profiles
-        schedule_timestamp += await_time + samples_per_scan
-        tune_step = (tune_step + 1) % tune_steps
+    cdef uint32_t required_events = pybladerf.RF_REQUIRE_EPOCH_VALID
 
     while working_sdrs[device_id].load():
 
-        meta.timestamp = scan_steps[scan_step_read_ptr].schedule_time
-
         try:
+            quick_tune = quick_tunes[tune_step][1]
+            quick_tune.rffe_profile = tune_step % rffe_profiles
+            transaction_id = device.pybladerf_rx_transition_begin(
+                formated_channel, quick_tunes[tune_step][0] + offset,
+                required_events, timeout_ms, True, quick_tune)
+            transition = device.pybladerf_rx_transition_wait(
+                transaction_id, timeout_ms)
+            if transition['event_name'] != 'rx_epoch_valid':
+                raise RuntimeError(
+                    f"RX transition ended at {transition['event_name']}")
+
             timestamp = time.time()
+            meta = pybladerf.pybladerf_metadata(
+                flags=pybladerf.PYBLADERF_META_FLAG_RX_NOW)
             device.pybladerf_sync_rx(buffer, samples_per_scan, meta, 0)
+            validate_epoch_block(
+                meta, transition, sample_count,
+                pybladerf.PYBLADERF_META_STATUS_OVERRUN)
             queue.put({
-                'start_frequency': scan_steps[scan_step_read_ptr].frequency,
-                'stop_frequency': scan_steps[scan_step_read_ptr].frequency + sample_rate,
+                'start_frequency': quick_tunes[tune_step][0],
+                'stop_frequency': quick_tunes[tune_step][0] + sample_rate,
                 'raw_iq': (buffer[::2] * divider + 1j * buffer[1::2] * divider).astype(np.complex64),
                 'timestamp': timestamp,
+                'channel': channel,
+                'epoch_id': transition['epoch_id'],
+                'first_valid_timestamp': transition['fpga_timestamp'],
             })
-
-            scan_step_read_ptr = (scan_step_read_ptr + 1) % 8
-
-            quick_tunes[tune_step][1].rffe_profile = free_rffe_profile
-            device.pybladerf_schedule_retune(formated_channel, schedule_timestamp, 0, quick_tunes[tune_step][1])
-
-            scan_steps[scan_step_write_ptr].frequency = quick_tunes[tune_step][0]
-            scan_steps[scan_step_write_ptr].schedule_time = schedule_timestamp + await_time
-            scan_step_write_ptr = (scan_step_write_ptr + 1) % 8
-
-            free_rffe_profile = (free_rffe_profile + 1) % rffe_profiles
-            schedule_timestamp += await_time + samples_per_scan
             tune_step = (tune_step + 1) % tune_steps
-
             accepted_samples += samples_per_scan
 
-        except pybladerf.PYBLADERF_ERR_TIME_PAST:
-            sys.stderr.write("Timestamp is in the past, restarting...\n")
-
-            tune_step = 0
-            free_rffe_profile = 0
-            scan_step_read_ptr = 0
-            scan_step_write_ptr = 0
-
-            schedule_timestamp = device.pybladerf_get_timestamp(pybladerf.pybladerf_direction.PYBLADERF_RX) + time_1ms * 150
-            device.pybladerf_cancel_scheduled_retunes(formated_channel)
-
-            for i in range(8):
-                quick_tunes[tune_step][1].rffe_profile = free_rffe_profile
-                device.pybladerf_schedule_retune(formated_channel, schedule_timestamp, 0, quick_tunes[tune_step][1])
-
-                scan_steps[scan_step_write_ptr].frequency = quick_tunes[tune_step][0]
-                scan_steps[scan_step_write_ptr].schedule_time = schedule_timestamp + await_time
-                scan_step_write_ptr = (scan_step_write_ptr + 1) % 8
-
-                free_rffe_profile = (free_rffe_profile + 1) % rffe_profiles
-                schedule_timestamp += await_time + samples_per_scan
-                tune_step = (tune_step + 1) % tune_steps
-            continue
-
         except pybladerf.PYBLADERF_ERR as ex:
-            sys.stderr.write("pybladerf_sync_rx() failed: %s %d", cbladerf.bladerf_strerror(ex.code), ex.code)
+            sys.stderr.write(f"RX transition/read failed: {cbladerf.bladerf_strerror(ex.code)} ({ex.code}); scan stopped\n")
+            working_sdrs[device_id].store(0)
+            break
+        except Exception as ex:
+            sys.stderr.write(f"RX transition/read failed: {ex}; scan stopped\n")
             working_sdrs[device_id].store(0)
             break
 
@@ -322,6 +283,9 @@ def pybladerf_scan(frequencies: list[int], samples_per_scan: int, queue: object,
 
             accepted_samples = 0
             time_prev = time_now
+
+        if tune_step == 0:
+            scan_count += 1
 
     if print_to_console:
         if not working_sdrs[device_id].load():

@@ -20,9 +20,17 @@ set PYTHON_BLADERF_INCLUDE_PATH=path_to_libbladeRF.h and bladeRF2.h dir
 set PYTHON_BLADERF_LIB_PATH=path_to_libbladerf.dll dir
 ```
 
-If you notice smeared frequencies in sweep mode please increase the time between sweeps.
-`export pybladerf_sweep_await_time=1.5-3 or more`
-await_time is the delay time between different frequencies in milliseconds
+Sweep and scan retunes use the ADR-0207 RX transition API. An IQ block is
+accepted only after the firmware reports a valid RX epoch and the returned
+metadata matches that epoch; a timeout or invalid block stops acquisition. The legacy
+`pybladerf_sweep_await_time` setting is no longer used.
+
+Use `--both` to collect RX1 and RX2 from the same tuned sweep. Both channels
+share the bladeRF LO and each output record is labeled with its channel. With
+the Python queue, records include `channel: 0` (RX1) or `channel: 1` (RX2).
+CSV output starts each dual-channel row with `RX1` or `RX2`. Dual-channel binary
+records add a little-endian `uint32` channel index immediately after the existing
+record-length field; single-channel binary records keep the legacy layout.
 
 ## Requirements:
 * Numpy>=2.2.1
@@ -63,7 +71,7 @@ options:
   -s, --serial_numbers  show only founded serial_numbers
 ```
 ```
-usage: python_bladerf sweep [-h] [-d] [-f] [-g] [-w] [-c] [-1] [-N] [-o] [-B] [-S] [-s] [-b] [-r]
+usage: python_bladerf sweep [-h] [-d] [-f] [-g] [-w] [-c] [--both] [-1] [-N] [-o] [-B] [-S] [-s] [-b] [-r]
 
 options:
   -h, --help  show this help message and exit
@@ -72,6 +80,7 @@ options:
   -g          RX gain, -15 - 60dB, 1dB steps
   -w          FFT bin width (frequency resolution) in Hz
   -c          RX channel. which channel to use (0, 1). Default is 0
+  --both      sweep RX1 and RX2 together and label both channel outputs
   -1          one shot mode. If specified = Enable
   -N          Number of sweeps to perform
   -o          oversample. If specified = Enable

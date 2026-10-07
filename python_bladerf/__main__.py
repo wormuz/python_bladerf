@@ -24,7 +24,7 @@ def main() -> None:
     pybladerf_info_parser.add_argument('-s', '--serial_numbers', action='store_true', help='show only founded serial_numbers')
 
     pybladerf_sweep_parser = subparsers.add_parser(
-        'sweep', help='a command-line spectrum analyzer.', usage='python_bladerf sweep [-h] [-d] [-f] [-g] [-w] [-c] [-1] [-N] [-o] [-p] [-B] [-S] [-s] [-b] [-r]',
+        'sweep', help='a command-line spectrum analyzer.', usage='python_bladerf sweep [-h] [-d] [-f] [-g] [-w] [-c] [--both] [-1] [-N] [-o] [-p] [-B] [-S] [-s] [-b] [-r]',
     )
 
     pybladerf_sweep_parser.add_argument('-d', action='store', help='serial number of desired BladeRF', metavar='', default='')
@@ -32,6 +32,7 @@ def main() -> None:
     pybladerf_sweep_parser.add_argument('-g', action='store', help='RX gain, -15 - 60dB, 1dB steps', metavar='', default=20)
     pybladerf_sweep_parser.add_argument('-w', action='store', help='FFT bin width (frequency resolution) in Hz', metavar='', default=1000000)
     pybladerf_sweep_parser.add_argument('-c', action='store', help='RX channel. which channel to use (0, 1). Default is 0', metavar='', default=0)
+    pybladerf_sweep_parser.add_argument('--both', action='store_true', help='sweep RX1 and RX2 together and label both channel outputs')
     pybladerf_sweep_parser.add_argument('-1', action='store_true', help='one shot mode. If specified = Enable')
     pybladerf_sweep_parser.add_argument('-N', action='store', help='Number of sweeps to perform', metavar='')
     pybladerf_sweep_parser.add_argument('-o', action='store_true', help='oversample. If specified = Enable')
@@ -94,6 +95,7 @@ def main() -> None:
                                         one_shot=args.__dict__.get('1'),  # type: ignore
                                         num_sweeps=int(args.N) if args.N is not None else None,
                                         filename=args.r,
+                                        dual_channel=args.both,
                                         print_to_console=True)
 
     elif args.command == 'transfer':

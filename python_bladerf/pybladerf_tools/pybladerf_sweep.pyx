@@ -35,6 +35,10 @@ from python_bladerf.pylibbladerf cimport pybladerf as c_pybladerf
 from libc.stdint cimport uint64_t, uint32_t, uint16_t, uint8_t
 from python_bladerf.pylibbladerf cimport cbladerf
 from python_bladerf import pybladerf
+from python_bladerf.sweep_helpers import (
+    iq_component_views,
+    validate_epoch_block,
+)
 from libcpp.atomic cimport atomic
 from queue import Queue
 cimport numpy as cnp
@@ -66,10 +70,6 @@ LINEAR_OFFSET_RATIO = 0.5
 
 cdef atomic[uint8_t] working_sdrs[16]
 cdef dict sdr_ids = {}
-
-cdef struct SweepStep:
-    uint64_t frequency
-    uint64_t schedule_time
 
 def sigint_callback_handler(sig, frame, sdr_id):
     global working_sdrs
@@ -122,6 +122,7 @@ cpdef void process_data(uint8_t device_id,
                        object empty_raw_data_queue,
                        object file,
                        object queue,
+                       bint dual_channel,
     ):
 
     global working_sdrs
@@ -131,8 +132,14 @@ cpdef void process_data(uint8_t device_id,
 
     cdef cnp.ndarray data
     cdef cnp.ndarray raw_iq
-    cdef cnp.ndarray fftOut
+    cdef cnp.ndarray fft_out
     cdef cnp.ndarray dbfs
+    cdef cnp.ndarray pwr
+    cdef object components
+    cdef object i_samples
+    cdef object q_samples
+    cdef unsigned int rx_channel
+    cdef unsigned int channel_count
     cdef double psd_norm = 1 / (sample_rate * np.dot(window, window))
 
     cdef uint32_t fft_1_start = 1 + (fft_size * 5) // 8
@@ -144,84 +151,99 @@ cpdef void process_data(uint8_t device_id,
     cdef uint64_t frequency = 0
     cdef str time_str
 
-    while working_sdrs[device_id].load():
+    while working_sdrs[device_id].load() or not raw_data_queue.empty():
 
         if raw_data_queue.empty():
+            if not working_sdrs[device_id].load():
+                break
             time.sleep(.035)
             continue
 
         time_str, frequency, data = raw_data_queue.get()
+        components = iq_component_views(data, dual_channel)
+        channel_count = 2 if dual_channel else 1
 
-        raw_iq = data[::2] * divider + 1j * data[1::2] * divider
+        for rx_channel in range(channel_count):
+            i_samples, q_samples = components[rx_channel]
+            raw_iq = i_samples * divider + 1j * q_samples * divider
+            fft_out = fft((raw_iq - raw_iq.mean()) * window)
+            dbfs = np.log10(
+                (fft_out.real**2 + fft_out.imag**2) * psd_norm + 1e-300
+            ) * 10.0
+            pwr = dbfs
+
+            if sweep_style == pybladerf.pybladerf_sweep_style.PYBLADERF_SWEEP_STYLE_LINEAR:
+                pwr = fftshift(dbfs)
+
+            if binary_output:
+                channel_header = struct.pack('I', rx_channel) if dual_channel else b''
+                header_bytes = 20 if dual_channel else 16
+                if sweep_style == pybladerf.pybladerf_sweep_style.PYBLADERF_SWEEP_STYLE_INTERLEAVED:
+                    record_length = header_bytes + (fft_size // 4) * 4
+                    line = struct.pack('I', record_length) + channel_header
+                    line += struct.pack('Q', frequency)
+                    line += struct.pack('Q', frequency + sample_rate // 4)
+                    line += struct.pack('<' + 'f' * (fft_size // 4), *pwr[fft_1_start:fft_1_stop])
+                    line += struct.pack('I', record_length) + channel_header
+                    line += struct.pack('Q', frequency + sample_rate // 2)
+                    line += struct.pack('Q', frequency + (sample_rate * 3) // 4)
+                    line += struct.pack('<' + 'f' * (fft_size // 4), *pwr[fft_2_start:fft_2_stop])
+                else:
+                    record_length = header_bytes + fft_size * 4
+                    line = struct.pack('I', record_length) + channel_header
+                    line += struct.pack('Q', frequency)
+                    line += struct.pack('Q', frequency + sample_rate)
+                    line += struct.pack('<' + 'f' * fft_size, *pwr)
+                file.write(line)
+
+            elif queue is not None:
+                channel_field = {'channel': rx_channel} if dual_channel else {}
+                if sweep_style == pybladerf.pybladerf_sweep_style.PYBLADERF_SWEEP_STYLE_INTERLEAVED:
+                    queue.put({
+                        'timestamp': time_str,
+                        'start_frequency': frequency,
+                        'stop_frequency': frequency + sample_rate // 4,
+                        'dbfs': pwr[fft_1_start:fft_1_stop].astype(np.float32),
+                        **channel_field,
+                    })
+                    queue.put({
+                        'timestamp': time_str,
+                        'start_frequency': frequency + sample_rate // 2,
+                        'stop_frequency': frequency + (sample_rate * 3) // 4,
+                        'dbfs': pwr[fft_2_start:fft_2_stop].astype(np.float32),
+                        **channel_field,
+                    })
+                else:
+                    queue.put({
+                        'timestamp': time_str,
+                        'start_frequency': frequency,
+                        'stop_frequency': frequency + sample_rate,
+                        'dbfs': pwr.astype(np.float32),
+                        **channel_field,
+                    })
+
+            else:
+                channel_prefix = f'RX{rx_channel + 1}, ' if dual_channel else ''
+                if sweep_style == pybladerf.pybladerf_sweep_style.PYBLADERF_SWEEP_STYLE_INTERLEAVED:
+                    for start_frequency, stop_frequency, bins in (
+                        (frequency, frequency + sample_rate // 4,
+                         pwr[fft_1_start:fft_1_stop]),
+                        (frequency + sample_rate // 2,
+                         frequency + (sample_rate * 3) // 4,
+                         pwr[fft_2_start:fft_2_stop]),
+                    ):
+                        line = f'{channel_prefix}{time_str}, {start_frequency}, {stop_frequency}, {sample_rate / fft_size}, {fft_size}, '
+                        for value in bins:
+                            line += f'{value:.10f}, '
+                        file.write(line[:len(line) - 2] + '\n')
+                else:
+                    line = f'{channel_prefix}{time_str}, {frequency}, {frequency + sample_rate}, {sample_rate / fft_size}, {fft_size}, '
+                    for value in pwr:
+                        line += f'{value:.2f}, '
+                    file.write(line[:len(line) - 2] + '\n')
+
+        # Do not return storage to the producer until both channel FFTs finish.
         empty_raw_data_queue.put(data)
-
-        fft_out = fft((raw_iq - raw_iq.mean()) * window)
-        dbfs = np.log10((fft_out.real**2 + fft_out.imag**2) * psd_norm + 1e-300) * 10.0
-
-        if sweep_style == pybladerf.pybladerf_sweep_style.PYBLADERF_SWEEP_STYLE_LINEAR:
-            pwr = fftshift(pwr)
-
-        if binary_output:
-            if sweep_style == pybladerf.pybladerf_sweep_style.PYBLADERF_SWEEP_STYLE_INTERLEAVED:
-                record_length = 16 + (fft_size // 4) * 4
-                line = struct.pack('I', record_length)
-                line += struct.pack('Q', frequency)
-                line += struct.pack('Q', frequency + sample_rate // 4)
-                line += struct.pack('<' + 'f' * (fft_size // 4), *pwr[fft_1_start:fft_1_stop])
-                line += struct.pack('I', record_length)
-                line += struct.pack('Q', frequency + sample_rate // 2)
-                line += struct.pack('Q', frequency + (sample_rate * 3) // 4)
-                line += struct.pack('<' + 'f' * (fft_size // 4), *pwr[fft_2_start:fft_2_stop])
-
-            else:
-                record_length = 16 + fft_size * 4
-                line = struct.pack('I', record_length)
-                line += struct.pack('Q', frequency)
-                line += struct.pack('Q', frequency + sample_rate)
-                line += struct.pack('<' + 'f' * fft_size, *pwr)
-
-            file.write(line)
-
-        elif queue is not None:
-            if sweep_style == pybladerf.pybladerf_sweep_style.PYBLADERF_SWEEP_STYLE_INTERLEAVED:
-                queue.put({
-                    'timestamp': time_str,
-                    'start_frequency': frequency,
-                    'stop_frequency': frequency + sample_rate // 4,
-                    'dbfs': pwr[fft_1_start:fft_1_stop].astype(np.float32),
-                })
-                queue.put({
-                    'timestamp': time_str,
-                    'start_frequency': frequency + sample_rate // 2,
-                    'stop_frequency': frequency + (sample_rate * 3) // 4,
-                    'dbfs': pwr[fft_2_start:fft_2_stop].astype(np.float32),
-                })
-
-            else:
-                queue.put({
-                    'timestamp': time_str,
-                    'start_frequency': frequency,
-                    'stop_frequency': frequency + sample_rate,
-                    'dbfs': pwr.astype(np.float32),
-                })
-
-        else:
-            if sweep_style == pybladerf.pybladerf_sweep_style.PYBLADERF_SWEEP_STYLE_INTERLEAVED:
-                line = f'{time_str}, {frequency}, {frequency + sample_rate // 4}, {sample_rate / fft_size}, {fft_size}, '
-                for value in pwr[fft_1_start:fft_1_stop]:
-                    line += f'{value:.10f}, '
-                line += f'\n{time_str}, {frequency + sample_rate // 2}, {frequency + (sample_rate * 3) // 4}, {sample_rate / fft_size}, {fft_size}, '
-                for value in pwr[fft_2_start:fft_2_stop]:
-                    line += f'{value:.10f}, '
-                line = line[:len(line) - 2] + '\n'
-
-            else:
-                line = f'{time_str}, {frequency}, {frequency + sample_rate}, {sample_rate / fft_size}, {fft_size}, '
-                for i in range(len(pwr)):
-                    line += f'{pwr[i]:.2f}, '
-                line = line[:len(line) - 2] + '\n'
-
-            file.write(line)
 
     close_ready.set()
 
@@ -232,12 +254,16 @@ def pybladerf_sweep(frequencies: list[int] | None = None, sample_rate: int = 61_
                     binary_output: bool = False, one_shot: bool = False, num_sweeps: int | None = None,
                     filename: str | None = None, queue: object | None = None,
                     print_to_console: bool = True,
+                    dual_channel: bool = False,
                     ) -> None:
 
     global working_sdrs, sdr_ids
 
     cdef uint8_t device_id = init_signals()
-    cdef uint8_t formated_channel = pybladerf.PYBLADERF_CHANNEL_RX(channel)
+    cdef uint8_t formated_channel = pybladerf.PYBLADERF_CHANNEL_RX(
+        0 if dual_channel else channel)
+    cdef uint8_t second_channel = pybladerf.PYBLADERF_CHANNEL_RX(1)
+    cdef object stream_layout
     cdef c_pybladerf.PyBladerfDevice device
     cdef uint64_t offset = 0
 
@@ -283,21 +309,30 @@ def pybladerf_sweep(frequencies: list[int] | None = None, sample_rate: int = 61_
     if print_to_console:
         sys.stderr.write(f'call pybladerf_set_sample_rate({sample_rate / 1e6 :.3f} MHz)\n')
     device.pybladerf_set_sample_rate(formated_channel, sample_rate)
+    if dual_channel:
+        device.pybladerf_set_sample_rate(second_channel, sample_rate)
 
     if not oversample:
         if print_to_console:
             sys.stderr.write(f'call pybladerf_set_bandwidth({formated_channel}, {baseband_filter_bandwidth / 1e6 :.3f} MHz)\n')
         device.pybladerf_set_bandwidth(formated_channel, baseband_filter_bandwidth)
+        if dual_channel:
+            device.pybladerf_set_bandwidth(second_channel, baseband_filter_bandwidth)
 
     if print_to_console:
         sys.stderr.write(f'call pybladerf_set_gain_mode({formated_channel}, {pybladerf.pybladerf_gain_mode.PYBLADERF_GAIN_MGC})\n')
     device.pybladerf_set_gain_mode(formated_channel, pybladerf.pybladerf_gain_mode.PYBLADERF_GAIN_MGC)
     device.pybladerf_set_gain(formated_channel, gain)
+    if dual_channel:
+        device.pybladerf_set_gain_mode(second_channel, pybladerf.pybladerf_gain_mode.PYBLADERF_GAIN_MGC)
+        device.pybladerf_set_gain(second_channel, gain)
 
     if antenna_enable:
         if print_to_console:
             sys.stderr.write(f'call pybladerf_set_bias_tee({formated_channel}, True)\n')
         device.pybladerf_set_bias_tee(formated_channel, True)
+        if dual_channel:
+            device.pybladerf_set_bias_tee(second_channel, True)
 
     num_ranges = len(frequencies) // 2
     calculated_frequencies = []
@@ -362,15 +397,20 @@ def pybladerf_sweep(frequencies: list[int] | None = None, sample_rate: int = 61_
     close_ready = threading.Event()
 
     device.pybladerf_set_rfic_rx_fir(pybladerf.pybladerf_rfic_rxfir.PYBLADERF_RFIC_RXFIR_BYPASS)
+    stream_layout = (
+        pybladerf.pybladerf_channel_layout.PYBLADERF_RX_X2 if dual_channel
+        else pybladerf.pybladerf_channel_layout.PYBLADERF_RX_X1)
     device.pybladerf_sync_config(
-        layout=pybladerf.pybladerf_channel_layout.PYBLADERF_RX_X1,
+        layout=stream_layout,
         data_format=pybladerf.pybladerf_format.PYBLADERF_FORMAT_SC8_Q7_META if oversample else pybladerf.pybladerf_format.PYBLADERF_FORMAT_SC16_Q11_META,
-        num_buffers=int(os.environ.get('pybladerf_sweep_num_buffers', 4096)),
-        buffer_size=int(os.environ.get('pybladerf_sweep_buffer_size', 8192)),
-        num_transfers=int(os.environ.get('pybladerf_sweep_num_transfers', 64)),
+        num_buffers=int(os.environ.get('pybladerf_sweep_num_buffers', 16)),
+        buffer_size=int(os.environ.get('pybladerf_sweep_buffer_size', 65536)),
+        num_transfers=int(os.environ.get('pybladerf_sweep_num_transfers', 8)),
         stream_timeout=0,
     )
     device.pybladerf_enable_module(formated_channel, True)
+    if dual_channel:
+        device.pybladerf_enable_module(second_channel, True)
 
     processing_thread = threading.Thread(target=process_data, args=(
         device_id,
@@ -384,19 +424,16 @@ def pybladerf_sweep(frequencies: list[int] | None = None, sample_rate: int = 61_
         empty_raw_data_queue,
         file,
         queue,
+        dual_channel,
     ), daemon=True)
     processing_thread.start()
 
-    cdef uint64_t time_1ms = int(sample_rate // 1000)
-    cdef uint64_t await_time = int(time_1ms * float(os.environ.get('pybladerf_sweep_await_time', 1.5)))
     cdef uint16_t tune_steps = len(calculated_frequencies)
 
     cdef double time_start = time.time()
     cdef double time_prev = time.time()
-    cdef uint8_t free_rffe_profile = 0
     cdef uint8_t rffe_profiles = min(8, tune_steps)
 
-    cdef uint64_t schedule_timestamp = 0
     cdef uint64_t accepted_samples = 0
     cdef double time_difference = 0
     cdef uint64_t sweep_count = 0
@@ -404,99 +441,85 @@ def pybladerf_sweep(frequencies: list[int] | None = None, sample_rate: int = 61_
     cdef double sweep_rate = 0
     cdef double time_now = 0
 
-    cdef uint8_t sweep_step_write_ptr = 0
-    cdef uint8_t sweep_step_read_ptr = 0
-    cdef SweepStep[8] sweep_steps
-
+    cdef uint32_t transaction_id
+    cdef uint32_t transition_timeout_ms = int(
+        os.environ.get('pybladerf_sweep_transition_timeout_ms', 1000))
+    cdef uint32_t rx_sample_count
+    cdef dict transition
+    cdef uint32_t required_events = pybladerf.RF_REQUIRE_EPOCH_VALID
     cdef cnp.ndarray buffer
+    rx_sample_count = fft_size * (2 if dual_channel else 1)
 
-    cdef c_pybladerf.pybladerf_metadata meta = pybladerf.pybladerf_metadata()
-
-    schedule_timestamp = device.pybladerf_get_timestamp(pybladerf.pybladerf_direction.PYBLADERF_RX) + time_1ms * 150
-
-    for i in range(8):
-        quick_tunes[tune_step][1].rffe_profile = free_rffe_profile
-        device.pybladerf_schedule_retune(formated_channel, schedule_timestamp, 0, quick_tunes[tune_step][1])
-
-        sweep_steps[sweep_step_write_ptr].frequency = quick_tunes[tune_step][0]
-        sweep_steps[sweep_step_write_ptr].schedule_time = schedule_timestamp + await_time
-        sweep_step_write_ptr = (sweep_step_write_ptr + 1) % 8
-
-        free_rffe_profile = (free_rffe_profile + 1) % rffe_profiles
-        schedule_timestamp += await_time + fft_size
-        tune_step = (tune_step + 1) % tune_steps
+    cdef bint buffer_checked_out = False
 
     while working_sdrs[device_id].load():
-        if empty_raw_data_queue.empty():
-            buffer = np.empty(fft_size if oversample else fft_size * 2, dtype=np.int8 if oversample else np.int16)
-        else:
-            buffer = empty_raw_data_queue.get()
-
-        meta.timestamp = sweep_steps[sweep_step_read_ptr].schedule_time
-
+        quick_tune = quick_tunes[tune_step][1]
+        quick_tune.rffe_profile = tune_step % rffe_profiles
         try:
-            device.pybladerf_sync_rx(buffer, fft_size, meta, 0)
-            raw_data_queue.put(
-                (
-                    datetime.datetime.now().strftime('%Y-%m-%d, %H:%M:%S.%f'),
-                    sweep_steps[sweep_step_read_ptr].frequency,
-                    buffer,
-                )
+            transaction_id = device.pybladerf_rx_transition_begin(
+                formated_channel,
+                quick_tunes[tune_step][0] + offset,
+                required_events,
+                transition_timeout_ms,
+                True,
+                quick_tune,
             )
+            transition = device.pybladerf_rx_transition_wait(
+                transaction_id, transition_timeout_ms)
+            if transition['event_name'] != 'rx_epoch_valid':
+                raise RuntimeError(
+                    f"RX transition ended at {transition['event_name']}")
 
-            sweep_step_read_ptr = (sweep_step_read_ptr + 1) % 8
+            if empty_raw_data_queue.empty():
+                # One complex sample has two scalar components. RX_X2 returns
+                # both channels in each time frame, doubling the scalar count.
+                buffer = np.empty(
+                    rx_sample_count * 2,
+                    dtype=np.int8 if oversample else np.int16)
+            else:
+                buffer = empty_raw_data_queue.get()
+            buffer_checked_out = True
 
-            quick_tunes[tune_step][1].rffe_profile = free_rffe_profile
-            device.pybladerf_schedule_retune(formated_channel, schedule_timestamp, 0, quick_tunes[tune_step][1])
+            meta = pybladerf.pybladerf_metadata(
+                flags=pybladerf.PYBLADERF_META_FLAG_RX_NOW)
+            device.pybladerf_sync_rx(buffer, rx_sample_count, meta, 0)
+            validate_epoch_block(
+                meta, transition, rx_sample_count,
+                pybladerf.PYBLADERF_META_STATUS_OVERRUN)
 
-            sweep_steps[sweep_step_write_ptr].frequency = quick_tunes[tune_step][0]
-            sweep_steps[sweep_step_write_ptr].schedule_time = schedule_timestamp + await_time
-            sweep_step_write_ptr = (sweep_step_write_ptr + 1) % 8
+            raw_data_queue.put((
+                datetime.datetime.now().strftime('%Y-%m-%d, %H:%M:%S.%f'),
+                quick_tunes[tune_step][0],
+                buffer,
+            ))
+            buffer_checked_out = False
 
-            free_rffe_profile = (free_rffe_profile + 1) % rffe_profiles
-            schedule_timestamp += await_time + fft_size
             tune_step = (tune_step + 1) % tune_steps
+            if tune_step == 0:
+                sweep_count += 1
+                if one_shot or num_sweeps == sweep_count:
+                    working_sdrs[device_id].store(0)
 
-            accepted_samples += fft_size
-
-        except pybladerf.PYBLADERF_ERR_TIME_PAST:
-            sys.stderr.write("Timestamp is in the past, restarting...\n")
-
-            tune_step = 0
-            free_rffe_profile = 0
-            sweep_step_read_ptr = 0
-            sweep_step_write_ptr = 0
-
-            schedule_timestamp = device.pybladerf_get_timestamp(pybladerf.pybladerf_direction.PYBLADERF_RX) + time_1ms * 150
-            device.pybladerf_cancel_scheduled_retunes(formated_channel)
-            empty_raw_data_queue.put(buffer)
-
-            for i in range(8):
-                quick_tunes[tune_step][1].rffe_profile = free_rffe_profile
-                device.pybladerf_schedule_retune(formated_channel, schedule_timestamp, 0, quick_tunes[tune_step][1])
-
-                sweep_steps[sweep_step_write_ptr].frequency = quick_tunes[tune_step][0]
-                sweep_steps[sweep_step_write_ptr].schedule_time = schedule_timestamp + await_time
-                sweep_step_write_ptr = (sweep_step_write_ptr + 1) % 8
-
-                free_rffe_profile = (free_rffe_profile + 1) % rffe_profiles
-                schedule_timestamp += await_time + fft_size
-                tune_step = (tune_step + 1) % tune_steps
-
-            continue
+            accepted_samples += rx_sample_count
 
         except pybladerf.PYBLADERF_ERR as ex:
-            sys.stderr.write("pybladerf_sync_rx() failed: %s %d", cbladerf.bladerf_strerror(ex.code), ex.code)
+            if buffer_checked_out:
+                empty_raw_data_queue.put(buffer)
+                buffer_checked_out = False
+            sys.stderr.write(
+                f"RX transition/read failed: {cbladerf.bladerf_strerror(ex.code)} "
+                f"({ex.code}); sweep stopped without accepting this block\n")
             working_sdrs[device_id].store(0)
             break
-
-
-        if tune_step == 0:
-            sweep_count += 1
-
-            if one_shot or (num_sweeps == sweep_count):
-                if sweep_count:
-                    working_sdrs[device_id].store(0)
+        except Exception as ex:
+            if buffer_checked_out:
+                empty_raw_data_queue.put(buffer)
+                buffer_checked_out = False
+            sys.stderr.write(
+                f"RX transition/read failed: {ex}; sweep stopped without "
+                "accepting this block\n")
+            working_sdrs[device_id].store(0)
+            break
 
         time_now = time.time()
         time_difference = time_now - time_prev
@@ -537,11 +560,15 @@ def pybladerf_sweep(frequencies: list[int] | None = None, sample_rate: int = 61_
     if antenna_enable:
         try:
             device.pybladerf_set_bias_tee(formated_channel, False)
+            if dual_channel:
+                device.pybladerf_set_bias_tee(second_channel, False)
         except Exception as ex:
                 sys.stderr.write(f'{ex}\n')
 
     try:
         device.pybladerf_enable_module(formated_channel, False)
+        if dual_channel:
+            device.pybladerf_enable_module(second_channel, False)
     except Exception as ex:
             sys.stderr.write(f'{ex}\n')
 
