@@ -71,14 +71,38 @@ from python_bladerf.pylibbladerf.pybladerf import (
     _rf_event_name,
     _rf_event_validity_fields,
     _rf_invalidation_reason,
+    _dispatch_rf_events_then_raise,
+    PYBLADERF_ERR_WOULD_BLOCK,
 )
 import threading
 import weakref
+import pytest
 
 RX_INVALID_FIELDS = {
     "iq_valid": False,
     "affected_rx_channels": ["RX1", "RX2"],
 }
+
+
+@pytest.mark.parametrize("result", [0, -18])
+def test_trigger_configuration_dispatches_invalidation_before_result(result):
+    calls = []
+
+    class Device:
+        def pybladerf_dispatch_rf_events(self):
+            calls.append("dispatch")
+
+    if result == 0:
+        _dispatch_rf_events_then_raise(
+            Device(), "pybladerf_trigger_arm()", result)
+        assert calls == ["dispatch"]
+    else:
+        with pytest.raises(PYBLADERF_ERR_WOULD_BLOCK) as exc_info:
+            _dispatch_rf_events_then_raise(
+                Device(), "pybladerf_write_trigger()", result)
+        assert calls == ["dispatch"]
+        assert exc_info.value.code == result
+        assert "pybladerf_write_trigger()" in str(exc_info.value)
 
 
 def test_rx_transition_requirement_flags_are_named_and_composable():

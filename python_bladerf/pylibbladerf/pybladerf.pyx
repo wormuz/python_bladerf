@@ -598,6 +598,11 @@ def raise_error(message: str, err: int) -> None:
         error_class = PYBLADERF_ERROR_MAP.get(err, PYBLADERF_ERR)
         raise error_class(message, err)
 
+def _dispatch_rf_events_then_raise(device, message: str, err: int) -> None:
+    """Deliver invalidation events before exposing a native setter failure."""
+    device.pybladerf_dispatch_rf_events()
+    raise_error(message, err)
+
 # ---- ENUM ---- #
 class pybladerf_backend(IntEnum):
     PYBLADERF_BACKEND_ANY = cbladerf.BLADERF_BACKEND_ANY
@@ -2427,7 +2432,7 @@ cdef class PyBladerfDevice:
 
     def pybladerf_trigger_arm(self, trigger: pybladerf_trigger, arm: bool) -> None:
         result = cbladerf.bladerf_trigger_arm(self.__bladerf_device, trigger.get_ptr(), arm, <uint64_t> 0, <uint64_t> 0)
-        raise_error('pybladerf_trigger_arm()', result)
+        _dispatch_rf_events_then_raise(self, 'pybladerf_trigger_arm()', result)
 
     def pybladerf_trigger_fire(self, trigger: pybladerf_trigger) -> None:
         result = cbladerf.bladerf_trigger_fire(self.__bladerf_device, trigger.get_ptr())
@@ -2821,7 +2826,7 @@ cdef class PyBladerfDevice:
 
     def pybladerf_write_trigger(self, channel: int, trigger_signal: pybladerf_trigger, value: int) -> None:
         result = cbladerf.bladerf_write_trigger(self.__bladerf_device, channel, trigger_signal, <uint8_t> value)
-        raise_error('pybladerf_write_trigger()', result)
+        _dispatch_rf_events_then_raise(self, 'pybladerf_write_trigger()', result)
 
     def pybladerf_set_rf_port(self, channel: int, port: str) -> None:
         result = cbladerf.bladerf_set_rf_port(self.__bladerf_device, channel, port.encode('utf-8'))
