@@ -210,17 +210,17 @@ def _rf_event_validity_fields(event_type: int, flags: int,
         'iq_valid': False,
         'affected_rx_channels': ['RX1', 'RX2'],
     }
+    channel_fields = (
+        {'transition_channel': 'RX2'
+         if flags & cbladerf.BLADERF_RF_EVENT_F_TRANSITION_RX2 else 'RX1'}
+        if flags & cbladerf.BLADERF_RF_EVENT_F_TRANSITION_CHANNEL_VALID
+        else {})
     if event_type in (
             cbladerf.BLADERF_RF_EVT_RX_FIRST_VALID_HOST_DATA,
             cbladerf.BLADERF_RF_EVT_RX_DATA_RESUMED):
         layout_fields = (
             {'rx_layout': 'RX_X2'}
             if flags & cbladerf.BLADERF_RF_EVENT_F_RX_X2_LAYOUT else {})
-        channel_fields = (
-            {'transition_channel': 'RX2'
-             if flags & cbladerf.BLADERF_RF_EVENT_F_TRANSITION_RX2 else 'RX1'}
-            if flags & cbladerf.BLADERF_RF_EVENT_F_TRANSITION_CHANNEL_VALID
-            else {})
         if flags & PYBLADERF_META_STATUS_OVERRUN:
             # These lifecycle events carry bladerf_metadata.status in flags.
             # A block marked overrun is not a complete valid-IQ boundary even
@@ -257,7 +257,7 @@ def _rf_event_validity_fields(event_type: int, flags: int,
     if event_type == cbladerf.BLADERF_RF_EVT_RX_EPOCH_VALID:
         # FPGA admission has opened, but no host META packet has yet crossed
         # the epoch/timestamp validator.
-        return {**timestamp_fields, **invalid_rx_fields,
+        return {**timestamp_fields, **channel_fields, **invalid_rx_fields,
                 'rx_epoch_valid': True}
     if event_type == cbladerf.BLADERF_RF_EVT_RX_STREAM_OVERRUN:
         source_flags = (
@@ -278,7 +278,7 @@ def _rf_event_validity_fields(event_type: int, flags: int,
              'sync_rx_sequence_tracker_full'),
         )
         details = [name for bit, name in detail_flags if flags & bit]
-        result = {**timestamp_fields, **invalid_rx_fields,
+        result = {**timestamp_fields, **channel_fields, **invalid_rx_fields,
                   'overrun_source': sources[0] if len(sources) == 1 else sources}
         if details:
             result['overrun_detail'] = (
@@ -307,12 +307,12 @@ def _rf_event_validity_fields(event_type: int, flags: int,
             cbladerf.BLADERF_RF_EVT_RX_EPOCH_ABORT_FAILED,
             cbladerf.BLADERF_RF_EVT_RX_BBPLL_LOCKED,
             cbladerf.BLADERF_RF_EVT_RX_LAYOUT_UNSUPPORTED):
-        return {**timestamp_fields, **invalid_rx_fields}
+        return {**timestamp_fields, **channel_fields, **invalid_rx_fields}
     if event_type != cbladerf.BLADERF_RF_EVT_RX_DATA_WITHHELD:
         # RF event enums can grow independently of this wrapper. An unknown
         # event must never leave sample validity implicit for an older
         # consumer.
-        return {**timestamp_fields, **invalid_rx_fields,
+        return {**timestamp_fields, **channel_fields, **invalid_rx_fields,
                 'event_type_unknown': True}
     reasons = {
         RF_WITHHELD_EPOCH_UNCERTIFIED: 'epoch_uncertified',
@@ -330,11 +330,6 @@ def _rf_event_validity_fields(event_type: int, flags: int,
                        cbladerf.BLADERF_RF_EVENT_F_RX_X2_LAYOUT |
                        cbladerf.BLADERF_RF_EVENT_F_TRANSITION_RX2 |
                        cbladerf.BLADERF_RF_EVENT_F_TRANSITION_CHANNEL_VALID)
-    channel_fields = (
-        {'transition_channel': 'RX2'
-         if flags & cbladerf.BLADERF_RF_EVENT_F_TRANSITION_RX2 else 'RX1'}
-        if flags & cbladerf.BLADERF_RF_EVENT_F_TRANSITION_CHANNEL_VALID
-        else {})
     return {**timestamp_fields, **channel_fields, **invalid_rx_fields,
             'withheld_reason': reasons.get(reason, 'unknown')}
 

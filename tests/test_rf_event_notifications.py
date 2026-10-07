@@ -135,6 +135,10 @@ def test_rf_invalidation_reason_names_cover_every_public_reason():
     assert all(_rf_invalidation_reason(19, flag) == name
                for flag, name in reasons)
     assert _rf_invalidation_reason(20, RF_INVALIDATE_DEVICE_RESET) is None
+    # Invalidation reasons occupy bits 28-30, reserved for channel
+    # provenance on other event types. Never reinterpret those reason bits.
+    assert _rf_invalidation_reason(19, RF_INVALIDATE_FEATURE) == "feature"
+    assert _rf_event_validity_fields(19, RF_INVALIDATE_FEATURE) == RX_INVALID_FIELDS
 
 
 def test_dispatch_synthesizes_history_loss_before_retained_events():
@@ -396,12 +400,40 @@ def test_native_rx_integrity_events_explicitly_mark_iq_invalid():
     assert _rf_event_validity_fields(25, 0) == RX_INVALID_FIELDS
     assert _rf_event_validity_fields(26, 0) == RX_INVALID_FIELDS
     assert _rf_event_name(26) == "rx_layout_unsupported"
+    assert _rf_event_validity_fields(
+        21, RF_EVENT_F_TRANSITION_CHANNEL_VALID | RF_EVENT_F_TRANSITION_RX2) == {
+            **RX_INVALID_FIELDS, "transition_channel": "RX2",
+        }
+    assert _rf_event_validity_fields(
+        26, RF_EVENT_F_TRANSITION_CHANNEL_VALID) == {
+            **RX_INVALID_FIELDS, "transition_channel": "RX1",
+        }
     assert _rf_event_validity_fields(20, 0) == {
         **RX_INVALID_FIELDS, "overrun_source": "host_stream_integrity",
     }
     assert _rf_event_validity_fields(20, RF_STREAM_STATUS_FPGA_RX_LOSS) == {
         **RX_INVALID_FIELDS, "overrun_source": "fpga_rx_loss_counter",
     }
+    assert _rf_event_validity_fields(
+        20, RF_STREAM_STATUS_ASYNC_USB |
+        RF_EVENT_F_TRANSITION_CHANNEL_VALID) == {
+            **RX_INVALID_FIELDS,
+            "transition_channel": "RX1",
+            "overrun_source": "async_usb_transport",
+        }
+    assert _rf_event_validity_fields(
+        20, RF_STREAM_STATUS_FPGA_RX_LOSS |
+        RF_EVENT_F_TRANSITION_CHANNEL_VALID | RF_EVENT_F_TRANSITION_RX2) == {
+            **RX_INVALID_FIELDS,
+            "transition_channel": "RX2",
+            "overrun_source": "fpga_rx_loss_counter",
+        }
+    assert _rf_event_validity_fields(
+        9, RF_EVENT_F_TRANSITION_CHANNEL_VALID | RF_EVENT_F_TRANSITION_RX2) == {
+            **RX_INVALID_FIELDS,
+            "transition_channel": "RX2",
+            "rx_epoch_valid": True,
+        }
     assert _rf_event_validity_fields(20, RF_STREAM_STATUS_SYNC_RX_QUEUE) == {
         **RX_INVALID_FIELDS, "overrun_source": "sync_rx_queue",
     }
