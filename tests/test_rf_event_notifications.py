@@ -16,6 +16,8 @@ from python_bladerf.pylibbladerf.pybladerf import (
     RF_REQUIRE_DATAPATH_ARMED,
     RF_REQUIRE_EPOCH_VALID,
     RF_REQUIRE_BBPLL_LOCKED,
+    RF_REQUIRE_FIRST_HOST_DATA,
+    RF_REQUIRE_RX_X2_HOST_DATA,
     RF_STREAM_STATUS_FPGA_RX_LOSS,
     RF_STREAM_STATUS_SYNC_RX_QUEUE,
     RF_STREAM_STATUS_ASYNC_USB,
@@ -78,8 +80,10 @@ def test_rx_transition_requirement_flags_are_named_and_composable():
         RF_REQUIRE_DATAPATH_ARMED,
         RF_REQUIRE_EPOCH_VALID,
         RF_REQUIRE_BBPLL_LOCKED,
+        RF_REQUIRE_FIRST_HOST_DATA,
+        RF_REQUIRE_RX_X2_HOST_DATA,
     ]
-    assert requirements == [1 << bit for bit in range(5)]
+    assert requirements == [1 << bit for bit in range(7)]
     assert len(set(requirements)) == len(requirements)
     assert (RF_REQUIRE_PLL_LOCKED | RF_REQUIRE_ENSM_RX |
             RF_REQUIRE_BBPLL_LOCKED | RF_REQUIRE_EPOCH_VALID) == 0x1B
@@ -332,7 +336,7 @@ def test_native_rx_integrity_events_explicitly_mark_iq_invalid():
     # Public RF event IDs 0..25 cover transition, data-validity, and
     # transport-integrity events. Every known event is explicit: only the
     # first or resumed host-validated META packet can set iq_valid=True.
-    for event_type in set(range(26)) - {9, 13, 19, 20, 22, 24}:
+    for event_type in set(range(27)) - {9, 13, 19, 20, 22, 24}:
         assert _rf_event_validity_fields(event_type, 0) == {
             **RX_INVALID_FIELDS,
         }
@@ -353,6 +357,8 @@ def test_native_rx_integrity_events_explicitly_mark_iq_invalid():
             "overrun_source": "metadata_status",
         }
     assert _rf_event_validity_fields(25, 0) == RX_INVALID_FIELDS
+    assert _rf_event_validity_fields(26, 0) == RX_INVALID_FIELDS
+    assert _rf_event_name(26) == "rx_layout_unsupported"
     assert _rf_event_validity_fields(20, 0) == {
         **RX_INVALID_FIELDS, "overrun_source": "host_stream_integrity",
     }
@@ -404,7 +410,7 @@ def test_native_rx_integrity_events_explicitly_mark_iq_invalid():
         **RX_INVALID_FIELDS,
         "withheld_reason": "usb_timeout",
     }
-    assert _rf_event_validity_fields(26, 0) == {
+    assert _rf_event_validity_fields(27, 0) == {
         **RX_INVALID_FIELDS,
         "event_type_unknown": True,
     }

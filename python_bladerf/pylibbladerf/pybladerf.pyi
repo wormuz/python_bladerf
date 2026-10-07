@@ -50,6 +50,7 @@ RF_REQUIRE_DATAPATH_ARMED: int
 RF_REQUIRE_EPOCH_VALID: int
 RF_REQUIRE_BBPLL_LOCKED: int
 RF_REQUIRE_FIRST_HOST_DATA: int
+RF_REQUIRE_RX_X2_HOST_DATA: int
 RF_EVENT_F_RX_X2_LAYOUT: int
 RF_STREAM_STATUS_OVERRUN: int
 RF_STREAM_STATUS_FPGA_RX_LOSS: int
@@ -1610,11 +1611,14 @@ class PyBladerfDevice:
         use PYBLADERF_CHANNEL_RX(0) and PYBLADERF_CHANNEL_RX(1), respectively.
         RF_REQUIRE_FIRST_HOST_DATA additionally waits for a validated host
         META transfer; a first transfer after the wait deadline is withheld.
+        RF_REQUIRE_RX_X2_HOST_DATA requires the paired RX_X2 stream and waits
+        for its first validated META transfer. RX_X1 configuration/start is
+        rejected while that transition requirement is active.
         '''
         ...
 
     def pybladerf_rx_transition_wait(self, transaction_id: int,
-                                    timeout_ms: int) -> dict[str, int]:
+                                    timeout_ms: int) -> dict[str, object]:
         ...
 
     def pybladerf_rx_transition_get_events(self, transaction_id: int) -> dict[str, object]:

@@ -38,6 +38,7 @@ from python_bladerf import pybladerf
 from python_bladerf.sweep_helpers import (
     iq_component_views,
     validate_epoch_block,
+    validate_transition_layout,
 )
 from libcpp.atomic cimport atomic
 from queue import Queue
@@ -446,9 +447,12 @@ def pybladerf_sweep(frequencies: list[int] | None = None, sample_rate: int = 61_
         os.environ.get('pybladerf_sweep_transition_timeout_ms', 1000))
     cdef uint32_t rx_sample_count
     cdef dict transition
+    cdef object paired_sync_read_error = None
     cdef uint32_t required_events = pybladerf.RF_REQUIRE_EPOCH_VALID
     cdef cnp.ndarray buffer
     rx_sample_count = fft_size * (2 if dual_channel else 1)
+    if dual_channel:
+        required_events |= pybladerf.RF_REQUIRE_RX_X2_HOST_DATA
 
     cdef bint buffer_checked_out = False
 
@@ -464,12 +468,6 @@ def pybladerf_sweep(frequencies: list[int] | None = None, sample_rate: int = 61_
                 True,
                 quick_tune,
             )
-            transition = device.pybladerf_rx_transition_wait(
-                transaction_id, transition_timeout_ms)
-            if transition['event_name'] != 'rx_epoch_valid':
-                raise RuntimeError(
-                    f"RX transition ended at {transition['event_name']}")
-
             if empty_raw_data_queue.empty():
                 # One complex sample has two scalar components. RX_X2 returns
                 # both channels in each time frame, doubling the scalar count.
@@ -482,7 +480,29 @@ def pybladerf_sweep(frequencies: list[int] | None = None, sample_rate: int = 61_
 
             meta = pybladerf.pybladerf_metadata(
                 flags=pybladerf.PYBLADERF_META_FLAG_RX_NOW)
-            device.pybladerf_sync_rx(buffer, rx_sample_count, meta, 0)
+            if dual_channel:
+                # The paired host-data requirement is satisfied by the first
+                # sync read. Keep that validated block for the detector path;
+                # transition_wait then confirms its transaction and layout.
+                paired_sync_read_error = None
+                try:
+                    device.pybladerf_sync_rx(
+                        buffer, rx_sample_count, meta, transition_timeout_ms)
+                except Exception as exc:
+                    # Always retire the RF transaction through wait(), even
+                    # when the concurrent data consumer fails. A read error
+                    # can never be promoted to transition success.
+                    paired_sync_read_error = exc
+                transition = device.pybladerf_rx_transition_wait(
+                    transaction_id, transition_timeout_ms)
+                validate_transition_layout(transition, True)
+                if paired_sync_read_error is not None:
+                    raise paired_sync_read_error
+            else:
+                transition = device.pybladerf_rx_transition_wait(
+                    transaction_id, transition_timeout_ms)
+                validate_transition_layout(transition, False)
+                device.pybladerf_sync_rx(buffer, rx_sample_count, meta, 0)
             validate_epoch_block(
                 meta, transition, rx_sample_count,
                 pybladerf.PYBLADERF_META_STATUS_OVERRUN)

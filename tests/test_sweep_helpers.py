@@ -6,6 +6,7 @@ import pytest
 from python_bladerf.sweep_helpers import (
     iq_component_views,
     validate_epoch_block,
+    validate_transition_layout,
 )
 
 
@@ -54,3 +55,16 @@ def test_epoch_validation_rejects_invalid_iq(changes):
     transition = {"epoch_id": 7, "fpga_timestamp": 1000}
     with pytest.raises(RuntimeError):
         validate_epoch_block(metadata, transition, 8, 1)
+
+
+def test_transition_layout_validation_requires_paired_host_event_for_rx_x2():
+    validate_transition_layout({
+        "event_name": "rx_first_valid_host_data", "rx_layout": "RX_X2",
+    }, True)
+    with pytest.raises(RuntimeError):
+        validate_transition_layout({
+            "event_name": "rx_first_valid_host_data", "rx_layout": "RX_X1",
+        }, True)
+    with pytest.raises(RuntimeError):
+        validate_transition_layout({"event_name": "rx_epoch_valid"}, True)
+    validate_transition_layout({"event_name": "rx_epoch_valid"}, False)

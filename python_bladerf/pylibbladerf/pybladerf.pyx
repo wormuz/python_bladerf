@@ -78,6 +78,7 @@ RF_REQUIRE_DATAPATH_ARMED = cbladerf.BLADERF_RF_REQUIRE_DATAPATH_ARMED
 RF_REQUIRE_EPOCH_VALID = cbladerf.BLADERF_RF_REQUIRE_EPOCH_VALID
 RF_REQUIRE_BBPLL_LOCKED = cbladerf.BLADERF_RF_REQUIRE_BBPLL_LOCKED
 RF_REQUIRE_FIRST_HOST_DATA = cbladerf.BLADERF_RF_REQUIRE_FIRST_HOST_DATA
+RF_REQUIRE_RX_X2_HOST_DATA = cbladerf.BLADERF_RF_REQUIRE_RX_X2_HOST_DATA
 RF_INVALIDATE_GAIN = cbladerf.BLADERF_RF_INVALIDATE_GAIN
 RF_INVALIDATE_GAIN_MODE = cbladerf.BLADERF_RF_INVALIDATE_GAIN_MODE
 RF_INVALIDATE_RF_PORT = cbladerf.BLADERF_RF_INVALIDATE_RF_PORT
@@ -285,7 +286,8 @@ def _rf_event_validity_fields(event_type: int, flags: int,
             cbladerf.BLADERF_RF_EVT_RX_STREAM_OVERRUN,
             cbladerf.BLADERF_RF_EVT_RX_FORMAT_UNSUPPORTED,
             cbladerf.BLADERF_RF_EVT_RX_EPOCH_ABORT_FAILED,
-            cbladerf.BLADERF_RF_EVT_RX_BBPLL_LOCKED):
+            cbladerf.BLADERF_RF_EVT_RX_BBPLL_LOCKED,
+            cbladerf.BLADERF_RF_EVT_RX_LAYOUT_UNSUPPORTED):
         return {**timestamp_fields, **invalid_rx_fields}
     if event_type != cbladerf.BLADERF_RF_EVT_RX_DATA_WITHHELD:
         # RF event enums can grow independently of this wrapper. An unknown
@@ -405,6 +407,8 @@ def _rf_event_name(event_type: int) -> str:
         return 'rx_stream_overrun'
     if event_type == cbladerf.BLADERF_RF_EVT_RX_FORMAT_UNSUPPORTED:
         return 'rx_format_unsupported'
+    if event_type == cbladerf.BLADERF_RF_EVT_RX_LAYOUT_UNSUPPORTED:
+        return 'rx_layout_unsupported'
     if event_type == cbladerf.BLADERF_RF_EVT_RX_DATA_WITHHELD:
         return 'rx_data_withheld'
     if event_type == cbladerf.BLADERF_RF_EVT_RX_EPOCH_ABORT_FAILED:
@@ -2051,7 +2055,9 @@ cdef class PyBladerfDevice:
         для валідного FPGA epoch використовуйте RF_REQUIRE_EPOCH_VALID.
         RF_REQUIRE_FIRST_HOST_DATA додатково чекає перший META transfer,
         перевірений за epoch і timestamp; якщо він не встигає до timeout,
-        пізній перший transfer буде withheld."""
+        пізній перший transfer буде withheld. RF_REQUIRE_RX_X2_HOST_DATA
+        вимагає RX_X2 stream і не дозволяє RX_X1 sync/async конфігурацію;
+        waiter завершується тільки після першого валідованого RX_X2 META."""
         cdef cbladerf.bladerf_rx_transition_request request
         cdef uint32_t transaction_id
         cdef cbladerf.bladerf_quick_tune *quick_tune_ptr = NULL

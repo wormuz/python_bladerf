@@ -34,3 +34,15 @@ def validate_epoch_block(metadata, transition, expected_samples: int,
         raise RuntimeError("RX block timestamp precedes the certified epoch boundary")
     if metadata.status & overrun_status:
         raise RuntimeError("RX block reports an overrun; IQ block rejected")
+
+
+def validate_transition_layout(transition, require_rx_x2: bool) -> None:
+    """Require the transition result to match the requested RX stream layout."""
+    if require_rx_x2:
+        if (transition.get("event_name") != "rx_first_valid_host_data" or
+                transition.get("rx_layout") != "RX_X2"):
+            raise RuntimeError(
+                "paired RX transition did not confirm validated RX_X2 host data")
+    elif transition.get("event_name") != "rx_epoch_valid":
+        raise RuntimeError(
+            f"RX transition ended at {transition.get('event_name')}")
