@@ -11,6 +11,8 @@ from python_bladerf.pylibbladerf.pybladerf import (
     RF_INVALIDATE_RFIC_STATUS_UNAVAILABLE,
     RF_INVALIDATE_RFIC_BBPLL_UNLOCKED,
     RF_INVALIDATE_FPGA_RX_LOSS_STATUS_UNAVAILABLE,
+    RF_INVALIDATE_RX_CHANNEL_STATE_CHANGED,
+    RF_INVALIDATE_RX_CHANNEL_STATUS_UNAVAILABLE,
     RF_REQUIRE_PLL_LOCKED,
     RF_REQUIRE_ENSM_RX,
     RF_REQUIRE_DATAPATH_ARMED,
@@ -125,6 +127,9 @@ def test_rf_invalidation_reason_names_cover_every_public_reason():
         (RF_INVALIDATE_RFIC_BBPLL_UNLOCKED, "rfic_bbpll_unlocked"),
         (RF_INVALIDATE_FPGA_RX_LOSS_STATUS_UNAVAILABLE,
          "fpga_rx_loss_status_unavailable"),
+        (RF_INVALIDATE_RX_CHANNEL_STATE_CHANGED, "rx_channel_state_changed"),
+        (RF_INVALIDATE_RX_CHANNEL_STATUS_UNAVAILABLE,
+         "rx_channel_status_unavailable"),
     ]
     assert len({flag for flag, _ in reasons}) == len(reasons)
     assert all(_rf_invalidation_reason(19, flag) == name
