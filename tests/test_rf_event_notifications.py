@@ -45,6 +45,7 @@ from python_bladerf.pylibbladerf.pybladerf import (
     RF_INVALIDATE_STREAM_CONFIG,
     RF_INVALIDATE_TUNING_MODE,
     RF_EVENT_F_FPGA_TIMESTAMP_VALID,
+    RF_EVENT_F_RX_X2_LAYOUT,
     PYBLADERF_META_STATUS_OVERRUN,
     RF_WITHHELD_DEVICE_LOST,
     RF_WITHHELD_SHORT_TRANSFER,
@@ -343,6 +344,14 @@ def test_native_rx_integrity_events_explicitly_mark_iq_invalid():
     }
     assert _rf_event_validity_fields(13, 0) == {"iq_valid": True}
     assert _rf_event_validity_fields(24, 0) == {"iq_valid": True}
+    assert _rf_event_validity_fields(13, RF_EVENT_F_RX_X2_LAYOUT) == {
+        "iq_valid": True, "rx_layout": "RX_X2",
+    }
+    assert _rf_event_validity_fields(
+        24, RF_EVENT_F_RX_X2_LAYOUT | PYBLADERF_META_STATUS_OVERRUN) == {
+            **RX_INVALID_FIELDS, "rx_layout": "RX_X2",
+            "overrun_source": "metadata_status",
+        }
     assert _rf_event_validity_fields(25, 0) == RX_INVALID_FIELDS
     assert _rf_event_validity_fields(20, 0) == {
         **RX_INVALID_FIELDS, "overrun_source": "host_stream_integrity",
