@@ -104,9 +104,17 @@ def _rf_invalidation_reason(event_type: int, flags: int):
 
 
 def _rf_event_validity_fields(event_type: int, flags: int) -> dict:
+    if event_type == cbladerf.BLADERF_RF_EVT_RX_FIRST_VALID_HOST_DATA:
+        return {'iq_valid': True}
+    if event_type == cbladerf.BLADERF_RF_EVT_RX_EPOCH_VALID:
+        # FPGA admission has opened, but no host META packet has yet crossed
+        # the epoch/timestamp validator.
+        return {'iq_valid': False, 'rx_epoch_valid': True}
     if event_type in (
             cbladerf.BLADERF_RF_EVT_RX_EPOCH_INVALID,
             cbladerf.BLADERF_RF_EVT_ERROR,
+            cbladerf.BLADERF_RF_EVT_RX_DATAPATH_ARMED,
+            cbladerf.BLADERF_RF_EVT_CONTROL_PLANE_CONFIRMED,
             cbladerf.BLADERF_RF_EVT_RX_DATA_INVALIDATED,
             cbladerf.BLADERF_RF_EVT_RX_STREAM_OVERRUN,
             cbladerf.BLADERF_RF_EVT_RX_FORMAT_UNSUPPORTED,
@@ -205,6 +213,10 @@ def _dispatch_rx_data_withheld(callbacks, callback_errors,
 
 
 def _rf_event_name(event_type: int) -> str:
+    if event_type == cbladerf.BLADERF_RF_EVT_RX_FIRST_VALID_HOST_DATA:
+        return 'rx_first_valid_host_data'
+    if event_type == cbladerf.BLADERF_RF_EVT_RX_EPOCH_VALID:
+        return 'rx_epoch_valid'
     if event_type == cbladerf.BLADERF_RF_EVT_RX_DATA_INVALIDATED:
         return 'rx_data_invalidated'
     if event_type == cbladerf.BLADERF_RF_EVT_RX_STREAM_OVERRUN:

@@ -125,6 +125,8 @@ def test_async_rx_withheld_notification_is_explicit_and_invalid():
 
 
 def test_unsupported_format_has_public_event_name():
+    assert _rf_event_name(9) == "rx_epoch_valid"
+    assert _rf_event_name(13) == "rx_first_valid_host_data"
     assert _rf_event_name(21) == "rx_format_unsupported"
     assert _rf_event_name(22) == "rx_data_withheld"
     assert _rf_event_name(23) == "rx_epoch_abort_failed"
@@ -157,11 +159,18 @@ def test_timestamp_discontinuity_reason_is_public():
 
 
 def test_native_rx_integrity_events_explicitly_mark_iq_invalid():
-    # Public event IDs: epoch-invalid=8, error=10, invalidation=19,
+    # Public event IDs: datapath-armed=7, epoch-invalid=8, epoch-valid=9,
+    # error=10, first-host-data=13, control-plane-only=15, invalidation=19,
     # stream-overrun=20, unsupported-format=21, withheld=22,
     # epoch-abort-failed=23.
+    assert _rf_event_validity_fields(7, 0) == {"iq_valid": False}
     assert _rf_event_validity_fields(8, 0) == {"iq_valid": False}
+    assert _rf_event_validity_fields(9, 0) == {
+        "iq_valid": False, "rx_epoch_valid": True,
+    }
     assert _rf_event_validity_fields(10, 0) == {"iq_valid": False}
+    assert _rf_event_validity_fields(13, 0) == {"iq_valid": True}
+    assert _rf_event_validity_fields(15, 0) == {"iq_valid": False}
     assert _rf_event_validity_fields(19, RF_INVALIDATE_GAIN) == {
         "iq_valid": False,
     }
