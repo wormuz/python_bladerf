@@ -195,9 +195,16 @@ def _rf_event_validity_fields(event_type: int, flags: int,
             cbladerf.BLADERF_RF_EVT_RX_FIRST_VALID_HOST_DATA,
             cbladerf.BLADERF_RF_EVT_RX_DATA_RESUMED):
         return {**timestamp_fields, 'iq_valid': True}
-    if (event_type == cbladerf.BLADERF_RF_EVT_RX_DATA_INVALIDATED and
-            flags == cbladerf.BLADERF_RF_INVALIDATE_FPGA_RX_FAULT and
-            rfic_status & cbladerf.BLADERF_RF_FPGA_RX_FAULT_CAUSES_VALID):
+    if event_type == cbladerf.BLADERF_RF_EVT_RX_DATA_INVALIDATED:
+        # The native RX epoch is shared by RX1 and RX2. Invalidating its
+        # certificate revokes both lanes, including when the configuration
+        # operation was initiated through only one channel handle.
+        result = {**timestamp_fields, 'iq_valid': False,
+                  'affected_rx_channels': ['RX1', 'RX2']}
+        if (flags != cbladerf.BLADERF_RF_INVALIDATE_FPGA_RX_FAULT or
+                not (rfic_status &
+                     cbladerf.BLADERF_RF_FPGA_RX_FAULT_CAUSES_VALID)):
+            return result
         cause_bits = (
             (cbladerf.BLADERF_RF_FPGA_RX_FAULT_SPEED_MISMATCH,
              'speed_mismatch'),
@@ -211,8 +218,8 @@ def _rf_event_validity_fields(event_type: int, flags: int,
              'fifo_abort'),
         )
         causes = [name for bit, name in cause_bits if rfic_status & bit]
-        return {**timestamp_fields, 'iq_valid': False,
-                'fpga_rx_fault_causes': causes}
+        result['fpga_rx_fault_causes'] = causes
+        return result
     if event_type == cbladerf.BLADERF_RF_EVT_RX_EPOCH_VALID:
         # FPGA admission has opened, but no host META packet has yet crossed
         # the epoch/timestamp validator.
@@ -260,7 +267,6 @@ def _rf_event_validity_fields(event_type: int, flags: int,
             cbladerf.BLADERF_RF_EVT_NIOS_RETUNE_RESPONSE,
             cbladerf.BLADERF_RF_EVT_RX_DATAPATH_ARMED,
             cbladerf.BLADERF_RF_EVT_CONTROL_PLANE_CONFIRMED,
-            cbladerf.BLADERF_RF_EVT_RX_DATA_INVALIDATED,
             cbladerf.BLADERF_RF_EVT_RX_STREAM_OVERRUN,
             cbladerf.BLADERF_RF_EVT_RX_FORMAT_UNSUPPORTED,
             cbladerf.BLADERF_RF_EVT_RX_EPOCH_ABORT_FAILED,

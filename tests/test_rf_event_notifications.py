@@ -313,10 +313,14 @@ def test_native_rx_integrity_events_explicitly_mark_iq_invalid():
     # Public RF event IDs 0..25 cover transition, data-validity, and
     # transport-integrity events. Every known event is explicit: only the
     # first or resumed host-validated META packet can set iq_valid=True.
-    for event_type in set(range(26)) - {9, 13, 20, 22, 24}:
+    for event_type in set(range(26)) - {9, 13, 19, 20, 22, 24}:
         assert _rf_event_validity_fields(event_type, 0) == {
             "iq_valid": False,
         }
+    assert _rf_event_validity_fields(19, RF_INVALIDATE_BANDWIDTH) == {
+        "iq_valid": False,
+        "affected_rx_channels": ["RX1", "RX2"],
+    }
     assert _rf_event_validity_fields(9, 0) == {
         "iq_valid": False, "rx_epoch_valid": True,
     }
@@ -385,6 +389,7 @@ def test_fpga_fault_event_exposes_coherent_cause_snapshot():
         19, RF_INVALIDATE_FPGA_RX_FAULT, causes
     ) == {
         "iq_valid": False,
+        "affected_rx_channels": ["RX1", "RX2"],
         "fpga_rx_fault_causes": ["gpif_timeout", "fifo_abort"],
     }
 

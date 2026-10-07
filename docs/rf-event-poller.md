@@ -22,6 +22,13 @@ Sync queue events also set `overrun_detail` to identify ring exhaustion
 (`sync_rx_reorder_window`), or a full dropped-sequence tracker
 (`sync_rx_sequence_tracker_full`). Multiple details are returned as a list.
 
+`rx_data_invalidated` notifications include `affected_rx_channels`, currently
+`["RX1", "RX2"]`. Firmware and libbladeRF maintain one RX epoch certificate
+for the shared AD9361 RX LO, so invalidating it revokes both channel consumers
+even if the setter was called through only one RX channel handle. A
+single-channel consumer may ignore its inactive channel; MIMO consumers must
+treat the paired epoch as invalid.
+
 Verification:
 
 - `tests/test_rf_event_notifications.py` covers transient poll failure,
