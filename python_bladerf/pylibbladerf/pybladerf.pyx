@@ -155,6 +155,9 @@ def _rf_event_notifications(events, history_complete: bool,
             'event_name': 'rf_event_history_lost',
             'flags': 0,
             'error_code': None,
+            # A missing event may have revoked the last certificate. The
+            # wrapper cannot infer validity from an incomplete history.
+            'iq_valid': False,
             'history_complete': False,
             'after_sequence': int(after_sequence),
             'observed_through_sequence': int(observed_sequence),

@@ -75,6 +75,7 @@ def test_dispatch_synthesizes_history_loss_before_retained_events():
     assert notifications[0]["after_sequence"] == 4
     assert notifications[0]["observed_through_sequence"] == 69
     assert notifications[0]["history_complete"] is False
+    assert notifications[0]["iq_valid"] is False
     assert received == notifications
     assert errors == [{"error": "RF event history overrun",
                        "history_complete": False}]
