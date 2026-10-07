@@ -156,8 +156,8 @@ def test_async_rx_metadata_snapshot_preserves_epoch_and_layout():
         "rx_epoch_id_valid": True,
         "layout": 3,
         "num_samples": 512,
-        "iq_valid": True,
     }
+    assert "iq_valid" not in metadata
 
 
 def test_async_rx_metadata_snapshot_marks_unavailable_epoch_explicitly():
@@ -165,7 +165,8 @@ def test_async_rx_metadata_snapshot_marks_unavailable_epoch_explicitly():
 
     assert metadata["rx_epoch_id"] is None
     assert metadata["rx_epoch_id_valid"] is False
-    assert metadata["iq_valid"] is False
+    assert metadata["num_samples"] == 0
+    assert "iq_valid" not in metadata
 
 
 def test_dispatch_synthesizes_history_loss_before_retained_events():

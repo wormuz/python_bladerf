@@ -1572,7 +1572,6 @@ def _make_rx_callback_metadata(timestamp, flags, status, actual_count,
         'rx_epoch_id_valid': bool(rx_epoch_id_valid),
         'layout': int(layout),
         'num_samples': int(num_samples),
-        'iq_valid': int(num_samples) > 0,
     }
 
 

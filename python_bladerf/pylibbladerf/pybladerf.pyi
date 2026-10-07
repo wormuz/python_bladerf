@@ -2086,7 +2086,9 @@ class PyBladerfDevice:
 
         The snapshot contains timestamp, flags, status, actual_count, rx_epoch_id
         (None when unavailable), rx_epoch_id_valid, layout, num_samples, and
-        iq_valid. The existing four-argument set_rx_callback API is unchanged.
+        no synthesized validity claim. IQ validity remains defined by the
+        transition/event contract; a non-empty callback buffer alone does not
+        certify it. The existing four-argument set_rx_callback API is unchanged.
         '''
         ...
 
