@@ -77,6 +77,7 @@ RF_INVALIDATE_TUNING_MODE = cbladerf.BLADERF_RF_INVALIDATE_TUNING_MODE
 RF_INVALIDATE_DEVICE_RESET = cbladerf.BLADERF_RF_INVALIDATE_DEVICE_RESET
 RF_INVALIDATE_FPGA_RELOAD = cbladerf.BLADERF_RF_INVALIDATE_FPGA_RELOAD
 RF_INVALIDATE_BOOTLOADER = cbladerf.BLADERF_RF_INVALIDATE_BOOTLOADER
+RF_INVALIDATE_FPGA_RX_FAULT = cbladerf.BLADERF_RF_INVALIDATE_FPGA_RX_FAULT
 
 
 def _rf_invalidation_reason(event_type: int, flags: int):
@@ -101,6 +102,7 @@ def _rf_invalidation_reason(event_type: int, flags: int):
         RF_INVALIDATE_DEVICE_RESET: 'device_reset',
         RF_INVALIDATE_FPGA_RELOAD: 'fpga_reload',
         RF_INVALIDATE_BOOTLOADER: 'bootloader',
+        RF_INVALIDATE_FPGA_RX_FAULT: 'fpga_rx_fault',
     }
     return reasons.get(flags, 'unknown')
 
