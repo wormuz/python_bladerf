@@ -259,6 +259,9 @@ def _rf_event_validity_fields(event_type: int, flags: int,
         # the epoch/timestamp validator.
         return {**timestamp_fields, **channel_fields, **invalid_rx_fields,
                 'rx_epoch_valid': True}
+    if event_type == cbladerf.BLADERF_RF_EVT_RX_INVALIDATION_CHANNEL:
+        return {**channel_fields, **invalid_rx_fields,
+                'invalidation_context': True}
     if event_type == cbladerf.BLADERF_RF_EVT_RX_STREAM_OVERRUN:
         source_flags = (
             (RF_STREAM_STATUS_FPGA_RX_LOSS, 'fpga_rx_loss_counter'),
@@ -365,6 +368,23 @@ def _rf_event_notifications(events, history_complete: bool,
     return notifications
 
 
+def _correlate_rx_invalidation_channel(events: list) -> list:
+    """Attach an adjacent channel-context event to its invalidation record.
+
+    C appends the reason event and this companion under one event-ring lock.
+    If a cursor starts between them, the context event still carries its own
+    epoch and channel; no inference is made for the missing reason.
+    """
+    for previous, current in zip(events, events[1:]):
+        if (previous['event_name'] == 'rx_data_invalidated' and
+                current['event_name'] == 'rx_invalidation_channel' and
+                previous['epoch_id'] == current['epoch_id'] and
+                previous['host_monotonic_ns'] == current['host_monotonic_ns'] and
+                'transition_channel' in current):
+            previous['transition_channel'] = current['transition_channel']
+    return events
+
+
 def _deliver_rf_event(callbacks, callback_errors, event) -> None:
     for callback in list(callbacks):
         try:
@@ -432,6 +452,8 @@ def _rf_event_name(event_type: int) -> str:
         return 'rx_format_unsupported'
     if event_type == cbladerf.BLADERF_RF_EVT_RX_LAYOUT_UNSUPPORTED:
         return 'rx_layout_unsupported'
+    if event_type == cbladerf.BLADERF_RF_EVT_RX_INVALIDATION_CHANNEL:
+        return 'rx_invalidation_channel'
     if event_type == cbladerf.BLADERF_RF_EVT_RX_DATA_WITHHELD:
         return 'rx_data_withheld'
     if event_type == cbladerf.BLADERF_RF_EVT_RX_EPOCH_ABORT_FAILED:
@@ -1996,6 +2018,7 @@ cdef class PyBladerfDevice:
                 **_rf_event_validity_fields(event.event_type, event.flags,
                                             event.rfic_status),
             })
+        _correlate_rx_invalidation_channel(items)
         return {'events': items, 'next_sequence': next_sequence,
                 'history_complete': bool(complete)}
 

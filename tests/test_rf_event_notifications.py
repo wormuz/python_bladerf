@@ -64,6 +64,7 @@ from python_bladerf.pylibbladerf.pybladerf import (
     PyBladerfDevice,
     _rf_event_poll_loop,
     _dispatch_rf_event_batch,
+    _correlate_rx_invalidation_channel,
     _dispatch_rx_data_withheld,
     _rf_event_name,
     _rf_event_validity_fields,
@@ -298,6 +299,33 @@ def test_unsupported_format_has_public_event_name():
     assert _rf_event_name(25) == "rx_bbpll_locked"
 
 
+def test_invalidation_channel_context_is_a_distinct_invalid_event():
+    assert _rf_event_name(27) == "rx_invalidation_channel"
+    assert _rf_event_validity_fields(
+        27, RF_EVENT_F_TRANSITION_CHANNEL_VALID | RF_EVENT_F_TRANSITION_RX2) == {
+            **RX_INVALID_FIELDS,
+            "transition_channel": "RX2",
+            "invalidation_context": True,
+        }
+
+    invalidation = {
+        "event_name": "rx_data_invalidated", "epoch_id": 12,
+        "host_monotonic_ns": 345,
+    }
+    context = {
+        "event_name": "rx_invalidation_channel", "epoch_id": 12,
+        "host_monotonic_ns": 345, "transition_channel": "RX2",
+    }
+    unmatched = {
+        "event_name": "rx_data_invalidated", "epoch_id": 13,
+        "host_monotonic_ns": 345,
+    }
+    events = _correlate_rx_invalidation_channel(
+        [invalidation, context, unmatched])
+    assert events[0]["transition_channel"] == "RX2"
+    assert "transition_channel" not in events[2]
+
+
 def test_timestamp_discontinuity_reason_is_public():
     assert RF_WITHHELD_TIMESTAMP_DISCONTINUITY == 1 << 2
     assert RF_WITHHELD_RX_CHANNEL_SELECTION == 1 << 9
@@ -362,10 +390,10 @@ def test_timestamp_discontinuity_reason_is_public():
 
 
 def test_native_rx_integrity_events_explicitly_mark_iq_invalid():
-    # Public RF event IDs 0..25 cover transition, data-validity, and
+    # Public RF event IDs 0..27 cover transition, data-validity, and
     # transport-integrity events. Every known event is explicit: only the
     # first or resumed host-validated META packet can set iq_valid=True.
-    for event_type in set(range(27)) - {9, 13, 19, 20, 22, 24}:
+    for event_type in set(range(28)) - {9, 13, 19, 20, 22, 24, 27}:
         assert _rf_event_validity_fields(event_type, 0) == {
             **RX_INVALID_FIELDS,
         }
@@ -481,7 +509,7 @@ def test_native_rx_integrity_events_explicitly_mark_iq_invalid():
     }
     assert _rf_event_validity_fields(27, 0) == {
         **RX_INVALID_FIELDS,
-        "event_type_unknown": True,
+        "invalidation_context": True,
     }
     assert _rf_event_validity_fields(
         0x7fffffff, RF_EVENT_F_FPGA_TIMESTAMP_VALID) == {
