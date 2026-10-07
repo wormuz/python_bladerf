@@ -1916,7 +1916,12 @@ cdef class PyBladerfDevice:
         Native history is polled on a daemon thread, so runtime events are
         delivered while another call such as ``sync_rx`` is blocked. Callback
         code can therefore run on this poller thread as well as on the thread
-        that completes a wrapper API call.
+        that completes a wrapper API call or the async RX backend thread. RX
+        callbacks run without libbladeRF's stream mutex, but still execute on
+        the streaming thread: keep observers short, and do not deinitialize
+        the active stream or close its device from the callback. Request
+        stream shutdown via its callback return value and tear it down after
+        the callback has returned.
         """
         if not callable(callback):
             raise TypeError('callback must be callable')
