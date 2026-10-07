@@ -2198,6 +2198,7 @@ cdef class PyBladerfDevice:
                 'rfic_status': event.rfic_status,
                 'fpga_state': int(event.fpga_state),
                 'event_type': int(event.event_type),
+                'event_name': _rf_event_name(event.event_type),
                 'flags': event.flags,
                 'invalidation_reason': _rf_invalidation_reason(
                     event.event_type, event.flags),
@@ -2205,6 +2206,7 @@ cdef class PyBladerfDevice:
                 **_rf_event_validity_fields(event.event_type, event.flags,
                                             event.rfic_status),
             })
+        _correlate_rx_invalidation_channel(event_list)
         return {'events': event_list,
                 'history_complete': bool(history_complete)}
 
