@@ -29,6 +29,10 @@ even if the setter was called through only one RX channel handle. A
 single-channel consumer may ignore its inactive channel; MIMO consumers must
 treat the paired epoch as invalid.
 
+Event types newer than the wrapper are reported with `iq_valid=False` and
+`event_type_unknown=True`, so extending the native event enum remains
+fail-closed for older Python consumers.
+
 Verification:
 
 - `tests/test_rf_event_notifications.py` covers transient poll failure,

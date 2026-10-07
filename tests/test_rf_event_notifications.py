@@ -378,7 +378,16 @@ def test_native_rx_integrity_events_explicitly_mark_iq_invalid():
         "iq_valid": False,
         "withheld_reason": "usb_timeout",
     }
-    assert _rf_event_validity_fields(26, 0) == {}
+    assert _rf_event_validity_fields(26, 0) == {
+        "iq_valid": False,
+        "event_type_unknown": True,
+    }
+    assert _rf_event_validity_fields(
+        0x7fffffff, RF_EVENT_F_FPGA_TIMESTAMP_VALID) == {
+            "iq_valid": False,
+            "event_type_unknown": True,
+            "fpga_timestamp_valid": True,
+        }
 
 
 def test_fpga_fault_event_exposes_coherent_cause_snapshot():

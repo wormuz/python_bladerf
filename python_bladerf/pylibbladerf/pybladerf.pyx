@@ -273,7 +273,11 @@ def _rf_event_validity_fields(event_type: int, flags: int,
             cbladerf.BLADERF_RF_EVT_RX_BBPLL_LOCKED):
         return {**timestamp_fields, 'iq_valid': False}
     if event_type != cbladerf.BLADERF_RF_EVT_RX_DATA_WITHHELD:
-        return {}
+        # RF event enums can grow independently of this wrapper. An unknown
+        # event must never leave sample validity implicit for an older
+        # consumer.
+        return {**timestamp_fields, 'iq_valid': False,
+                'event_type_unknown': True}
     reasons = {
         RF_WITHHELD_EPOCH_UNCERTIFIED: 'epoch_uncertified',
         RF_WITHHELD_EPOCH_OR_TIMESTAMP_MISMATCH: 'epoch_or_timestamp_mismatch',
