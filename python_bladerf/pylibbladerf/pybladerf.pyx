@@ -2804,6 +2804,10 @@ cdef class PyBladerfDevice:
 
     def pybladerf_enable_feature(self, feature: pybladerf_feature, enable: bool) -> None:
         result = cbladerf.bladerf_enable_feature(self.__bladerf_device, feature, enable)
+        # Feature changes invalidate the shared RX data certificate in
+        # libbladeRF. Deliver that event at the API boundary, including when
+        # the native call reports an error after recording the invalidation.
+        self.pybladerf_dispatch_rf_events()
         raise_error('pybladerf_enable_feature()', result)
 
     def pybladerf_get_feature(self) -> pybladerf_feature:
