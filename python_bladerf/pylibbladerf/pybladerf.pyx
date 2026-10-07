@@ -2913,6 +2913,9 @@ cdef class PyBladerfDevice:
 
     def pybladerf_set_rfic_tx_fir(self, txfir: pybladerf_rfic_txfir) -> None:
         result = cbladerf.bladerf_set_rfic_tx_fir(self.__bladerf_device, txfir)
+        # TX FIR programming can recalculate shared RFIC clock/datapath state,
+        # so libbladeRF revokes the RX certificate as part of this operation.
+        self.pybladerf_dispatch_rf_events()
         raise_error('pybladerf_set_rfic_tx_fir()', result)
 
     def pybladerf_get_pll_lock_state(self) -> bool:
