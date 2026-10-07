@@ -154,3 +154,14 @@ def test_timestamp_discontinuity_reason_is_public():
             "iq_valid": False,
             "withheld_reason": name,
         }
+
+
+def test_native_rx_integrity_events_explicitly_mark_iq_invalid():
+    # Public event IDs: invalidation=19, stream-overrun=20,
+    # unsupported-format=21, withheld=22, epoch-abort-failed=23.
+    assert _rf_event_validity_fields(19, RF_INVALIDATE_GAIN) == {
+        "iq_valid": False,
+    }
+    assert _rf_event_validity_fields(20, 0) == {"iq_valid": False}
+    assert _rf_event_validity_fields(21, 0) == {"iq_valid": False}
+    assert _rf_event_validity_fields(23, 0) == {"iq_valid": False}
