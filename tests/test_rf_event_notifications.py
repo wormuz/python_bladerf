@@ -54,6 +54,7 @@ from python_bladerf.pylibbladerf.pybladerf import (
     RF_WITHHELD_DEVICE_LOST,
     RF_WITHHELD_SHORT_TRANSFER,
     RF_WITHHELD_SYNC_TIMEOUT,
+    RF_WITHHELD_RX_CHANNEL_SELECTION,
     RF_WITHHELD_TIMESTAMP_DISCONTINUITY,
     RF_WITHHELD_USB_OVERFLOW,
     RF_WITHHELD_USB_TIMEOUT,
@@ -290,6 +291,15 @@ def test_unsupported_format_has_public_event_name():
 
 def test_timestamp_discontinuity_reason_is_public():
     assert RF_WITHHELD_TIMESTAMP_DISCONTINUITY == 1 << 2
+    assert RF_WITHHELD_RX_CHANNEL_SELECTION == 1 << 9
+    assert _rf_event_validity_fields(
+        22, RF_WITHHELD_RX_CHANNEL_SELECTION |
+        RF_EVENT_F_TRANSITION_CHANNEL_VALID | RF_EVENT_F_TRANSITION_RX2 |
+        RF_EVENT_F_FPGA_TIMESTAMP_VALID) == {
+            **RX_INVALID_FIELDS,
+            "withheld_reason": "rx_channel_selection",
+            "fpga_timestamp_valid": True,
+        }
     assert _rf_event_validity_fields(22, RF_WITHHELD_TIMESTAMP_DISCONTINUITY) == {
         **RX_INVALID_FIELDS,
         "withheld_reason": "timestamp_discontinuity",

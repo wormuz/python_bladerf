@@ -656,6 +656,7 @@ cdef extern from 'libbladeRF.h' nogil:
     const uint32_t BLADERF_RF_WITHHELD_USB_TIMEOUT
     const uint32_t BLADERF_RF_WITHHELD_DEVICE_LOST
     const uint32_t BLADERF_RF_WITHHELD_SYNC_TIMEOUT
+    const uint32_t BLADERF_RF_WITHHELD_RX_CHANNEL_SELECTION
 
     cdef struct bladerf_rf_event:
         uint64_t host_monotonic_ns

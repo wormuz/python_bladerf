@@ -106,6 +106,8 @@ RF_WITHHELD_USB_TRANSFER_ERROR = (
 RF_WITHHELD_USB_TIMEOUT = cbladerf.BLADERF_RF_WITHHELD_USB_TIMEOUT
 RF_WITHHELD_DEVICE_LOST = cbladerf.BLADERF_RF_WITHHELD_DEVICE_LOST
 RF_WITHHELD_SYNC_TIMEOUT = cbladerf.BLADERF_RF_WITHHELD_SYNC_TIMEOUT
+RF_WITHHELD_RX_CHANNEL_SELECTION = (
+    cbladerf.BLADERF_RF_WITHHELD_RX_CHANNEL_SELECTION)
 RF_EVENT_F_FPGA_TIMESTAMP_VALID = (
     cbladerf.BLADERF_RF_EVENT_F_FPGA_TIMESTAMP_VALID)
 RF_EVENT_F_RX_X2_LAYOUT = cbladerf.BLADERF_RF_EVENT_F_RX_X2_LAYOUT
@@ -315,8 +317,12 @@ def _rf_event_validity_fields(event_type: int, flags: int,
         RF_WITHHELD_USB_TIMEOUT: 'usb_timeout',
         RF_WITHHELD_DEVICE_LOST: 'device_lost',
         RF_WITHHELD_SYNC_TIMEOUT: 'sync_timeout',
+        RF_WITHHELD_RX_CHANNEL_SELECTION: 'rx_channel_selection',
     }
-    reason = flags & ~RF_EVENT_F_FPGA_TIMESTAMP_VALID
+    reason = flags & ~(RF_EVENT_F_FPGA_TIMESTAMP_VALID |
+                       cbladerf.BLADERF_RF_EVENT_F_RX_X2_LAYOUT |
+                       cbladerf.BLADERF_RF_EVENT_F_TRANSITION_RX2 |
+                       cbladerf.BLADERF_RF_EVENT_F_TRANSITION_CHANNEL_VALID)
     return {**timestamp_fields, **invalid_rx_fields,
             'withheld_reason': reasons.get(reason, 'unknown')}
 
