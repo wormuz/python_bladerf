@@ -1559,6 +1559,25 @@ ELSE:
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
+def _make_rx_callback_metadata(timestamp, flags, status, actual_count,
+                               rx_epoch_id_valid, rx_epoch_id, layout,
+                               num_samples):
+    """Copy native RX metadata into a Python-owned callback snapshot."""
+    return {
+        'timestamp': int(timestamp),
+        'flags': int(flags),
+        'status': int(status),
+        'actual_count': int(actual_count),
+        'rx_epoch_id': int(rx_epoch_id) if rx_epoch_id_valid else None,
+        'rx_epoch_id_valid': bool(rx_epoch_id_valid),
+        'layout': int(layout),
+        'num_samples': int(num_samples),
+        'iq_valid': int(num_samples) > 0,
+    }
+
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
 cdef void *__rx_callback_SC16_Q11(cbladerf.bladerf *dev, cbladerf.bladerf_stream *stream, cbladerf.bladerf_metadata *meta, void *samples, size_t num_samples, void *user_data) noexcept nogil:
     global global_callbacks
     cdef pybladerf_async_data *async_data = <pybladerf_async_data*> user_data
@@ -1592,7 +1611,14 @@ cdef void *__rx_callback_SC16_Q11(cbladerf.bladerf *dev, cbladerf.bladerf_stream
         # with state STREAM_DONE and no error reported to the caller.
         result = 0
 
-        if global_callbacks[<size_t> dev]['__rx_callback'] is not None:
+        if global_callbacks[<size_t> dev]['__rx_callback_with_metadata'] is not None:
+            result = global_callbacks[<size_t> dev]['__rx_callback_with_metadata'](
+                global_callbacks[<size_t> dev]['device'], pystream, np_buffer,
+                num_samples, _make_rx_callback_metadata(
+                    meta[0].timestamp, meta[0].flags, meta[0].status,
+                    meta[0].actual_count, meta[0].rx_epoch_id_valid,
+                    meta[0].rx_epoch_id, int(pystream.layout), num_samples))
+        elif global_callbacks[<size_t> dev]['__rx_callback'] is not None:
             result = global_callbacks[<size_t> dev]['__rx_callback'](global_callbacks[<size_t> dev]['device'], pystream, np_buffer, num_samples)
 
         if result == 0:
@@ -1633,7 +1659,14 @@ cdef void *__rx_callback_SC8_Q7(cbladerf.bladerf *dev, cbladerf.bladerf_stream *
         # with state STREAM_DONE and no error reported to the caller.
         result = 0
 
-        if global_callbacks[<size_t> dev]['__rx_callback'] is not None:
+        if global_callbacks[<size_t> dev]['__rx_callback_with_metadata'] is not None:
+            result = global_callbacks[<size_t> dev]['__rx_callback_with_metadata'](
+                global_callbacks[<size_t> dev]['device'], pystream, np_buffer,
+                num_samples, _make_rx_callback_metadata(
+                    meta[0].timestamp, meta[0].flags, meta[0].status,
+                    meta[0].actual_count, meta[0].rx_epoch_id_valid,
+                    meta[0].rx_epoch_id, int(pystream.layout), num_samples))
+        elif global_callbacks[<size_t> dev]['__rx_callback'] is not None:
             result = global_callbacks[<size_t> dev]['__rx_callback'](global_callbacks[<size_t> dev]['device'], pystream, np_buffer, num_samples)
 
         if result == 0:
@@ -1814,6 +1847,7 @@ cdef class PyBladerfDevice:
 
             global_callbacks[<size_t> self.__bladerf_device] = {
                 '__rx_callback': None,
+                '__rx_callback_with_metadata': None,
                 '__tx_callback': None,
                 '__tx_complete_callback': None,
                 'tx_complete_enabled': False,
@@ -3029,9 +3063,21 @@ cdef class PyBladerfDevice:
 
         if self.__bladerf_device is not NULL:
             global_callbacks[<size_t> self.__bladerf_device]['__rx_callback'] = rx_callback_function
+            global_callbacks[<size_t> self.__bladerf_device]['__rx_callback_with_metadata'] = None
             return
 
         raise RuntimeError(f'set_rx_callback() failed: Device not initialized!')
+
+    def set_rx_callback_with_metadata(self, rx_callback_function) -> None:
+        """Install an RX callback receiving a copied metadata dict as arg 5."""
+        global global_callbacks
+
+        if self.__bladerf_device is not NULL:
+            global_callbacks[<size_t> self.__bladerf_device]['__rx_callback'] = None
+            global_callbacks[<size_t> self.__bladerf_device]['__rx_callback_with_metadata'] = rx_callback_function
+            return
+
+        raise RuntimeError('set_rx_callback_with_metadata() failed: Device not initialized!')
 
     def set_tx_callback(self, tx_callback_function: Callable[[Self, pybladerf_stream, np.ndarray[Any, Any], int, int], int]) -> None:
         global global_callbacks

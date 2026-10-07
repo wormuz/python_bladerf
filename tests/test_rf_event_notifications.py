@@ -1,4 +1,5 @@
 from python_bladerf.pylibbladerf.pybladerf import (
+    _make_rx_callback_metadata,
     RF_INVALIDATE_BANDWIDTH,
     RF_INVALIDATE_BOOTLOADER,
     RF_INVALIDATE_FPGA_RX_FAULT,
@@ -140,6 +141,31 @@ def test_rf_invalidation_reason_names_cover_every_public_reason():
     # provenance on other event types. Never reinterpret those reason bits.
     assert _rf_invalidation_reason(19, RF_INVALIDATE_FEATURE) == "feature"
     assert _rf_event_validity_fields(19, RF_INVALIDATE_FEATURE) == RX_INVALID_FIELDS
+
+
+def test_async_rx_metadata_snapshot_preserves_epoch_and_layout():
+    metadata = _make_rx_callback_metadata(
+        0x123456789, 0x12, 0x34, 512, 1, 7, 3, 512)
+
+    assert metadata == {
+        "timestamp": 0x123456789,
+        "flags": 0x12,
+        "status": 0x34,
+        "actual_count": 512,
+        "rx_epoch_id": 7,
+        "rx_epoch_id_valid": True,
+        "layout": 3,
+        "num_samples": 512,
+        "iq_valid": True,
+    }
+
+
+def test_async_rx_metadata_snapshot_marks_unavailable_epoch_explicitly():
+    metadata = _make_rx_callback_metadata(42, 0, 0, 0, 0, 0, 2, 0)
+
+    assert metadata["rx_epoch_id"] is None
+    assert metadata["rx_epoch_id_valid"] is False
+    assert metadata["iq_valid"] is False
 
 
 def test_dispatch_synthesizes_history_loss_before_retained_events():

@@ -2081,6 +2081,15 @@ class PyBladerfDevice:
         '''
         ...
 
+    def set_rx_callback_with_metadata(self, rx_callback_function: Callable[[Self, pybladerf_stream, np.ndarray[Any, Any], int, dict[str, Any]], int]) -> None:
+        '''Install an RX callback with a copied native metadata snapshot as its fifth argument.
+
+        The snapshot contains timestamp, flags, status, actual_count, rx_epoch_id
+        (None when unavailable), rx_epoch_id_valid, layout, num_samples, and
+        iq_valid. The existing four-argument set_rx_callback API is unchanged.
+        '''
+        ...
+
     def set_tx_callback(self, tx_callback_function: Callable[[Self, pybladerf_stream, np.ndarray[Any, Any], int, int], int]) -> None:
         '''
         Accept a 5 args that contains the device, pystream, buffer, the number of complex samples and the valid complex samples in the buffer data.
