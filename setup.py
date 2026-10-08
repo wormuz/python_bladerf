@@ -11,6 +11,7 @@ from Cython.Build import cythonize
 INSTALL_REQUIRES = ['Cython>=3.1.0,<3.2.1', 'numpy']
 SETUP_REQUIRES = ['Cython>=3.1.0,<3.2.1', 'numpy']
 libbladerf_h_paths = []
+libbladerf_link_args = []
 
 # The .pxd files carry the layout of PyBladerfDevice and the libbladeRF
 # declarations. Without them in depends, editing a .pxd leaves the modules that
@@ -51,6 +52,10 @@ if PLATFORM != 'android':
                 raise RuntimeError('Unable to run pkg-config. Set libs manually export PYTHON_BLADERF_LDFLAGS=') from None
         else:
             new_ldflags = environ.get('PYTHON_BLADERF_LDFLAGS', '')
+        # Put library arguments after extension object files. Passing these
+        # through LDFLAGS places them before the objects on setuptools' link
+        # command; with --as-needed, libbladeRF is then dropped from DT_NEEDED.
+        libbladerf_link_args = new_ldflags.split()
 
     elif PLATFORM.startswith('win'):
         include_path = 'C:\\Program Files\\BladeRF\\include'
@@ -74,7 +79,7 @@ if PLATFORM != 'android':
         environ['LINK'] = f'/LIBPATH:"{lib_path}" bladeRF.lib'
 
     environ['CFLAGS'] = f'{cflags} {new_cflags}'.strip()
-    environ['LDFLAGS'] = f'{ldflags} {new_ldflags}'.strip()
+    environ['LDFLAGS'] = ldflags
 
 else:
     libbladerf_h_paths = [environ.get('PYTHON_BLADERF_LIBBLADERF_H_PATH', '')]
@@ -125,6 +130,7 @@ setup(  # type: ignore
             sources=['python_bladerf/pylibbladerf/pybladerf.pyx'],
             include_dirs=['python_bladerf/pylibbladerf', *libbladerf_h_paths, numpy.get_include()],
             extra_compile_args=['-w'],
+            extra_link_args=libbladerf_link_args,
             depends=PXD_DEPENDS,
             language='c++',
         ),
@@ -133,6 +139,7 @@ setup(  # type: ignore
             sources=['python_bladerf/pybladerf_tools/pybladerf_sweep.pyx'],
             include_dirs=['python_bladerf/pylibbladerf', 'python_bladerf/pybladerf_tools', *libbladerf_h_paths, numpy.get_include()],
             extra_compile_args=['-w'],
+            extra_link_args=libbladerf_link_args,
             depends=PXD_DEPENDS,
             language='c++',
         ),
@@ -141,6 +148,7 @@ setup(  # type: ignore
             sources=['python_bladerf/pybladerf_tools/pybladerf_scan.pyx'],
             include_dirs=['python_bladerf/pylibbladerf', 'python_bladerf/pybladerf_tools', *libbladerf_h_paths, numpy.get_include()],
             extra_compile_args=['-w'],
+            extra_link_args=libbladerf_link_args,
             depends=PXD_DEPENDS,
             language='c++',
         ),
@@ -149,6 +157,7 @@ setup(  # type: ignore
             sources=['python_bladerf/pybladerf_tools/pybladerf_transfer.pyx'],
             include_dirs=['python_bladerf/pylibbladerf', 'python_bladerf/pybladerf_tools', *libbladerf_h_paths, numpy.get_include()],
             extra_compile_args=['-w'],
+            extra_link_args=libbladerf_link_args,
             depends=PXD_DEPENDS,
             language='c++',
         ),
