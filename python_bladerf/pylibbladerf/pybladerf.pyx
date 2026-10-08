@@ -230,8 +230,13 @@ def _rf_event_validity_fields(event_type: int, flags: int,
             return {**timestamp_fields, **layout_fields, **channel_fields,
                     **invalid_rx_fields,
                     'overrun_source': 'metadata_status'}
+        # Native host-data lifecycle events are created from the stored
+        # RX_EPOCH_VALID certificate and carry its transaction/epoch IDs.
+        # The first host-validated META packet therefore confirms both the
+        # epoch and the IQ admission contract, even though this event is not
+        # itself typed RX_EPOCH_VALID.
         return {**timestamp_fields, **layout_fields, **channel_fields,
-                'iq_valid': True}
+                'iq_valid': True, 'rx_epoch_valid': True}
     if event_type == cbladerf.BLADERF_RF_EVT_RX_DATA_INVALIDATED:
         # The native RX epoch is shared by RX1 and RX2. Invalidating its
         # certificate revokes both lanes, including when the configuration

@@ -414,8 +414,9 @@ def test_timestamp_discontinuity_reason_is_public():
         "fpga_timestamp_valid": True,
     }
     assert _rf_event_validity_fields(
-        24, RF_EVENT_F_FPGA_TIMESTAMP_VALID) == {
-            "iq_valid": True, "fpga_timestamp_valid": True,
+            24, RF_EVENT_F_FPGA_TIMESTAMP_VALID) == {
+                "iq_valid": True, "rx_epoch_valid": True,
+                "fpga_timestamp_valid": True,
         }
     for event_type in (13, 24):
         assert _rf_event_validity_fields(
@@ -456,20 +457,25 @@ def test_native_rx_integrity_events_explicitly_mark_iq_invalid():
     assert _rf_event_validity_fields(9, 0) == {
         **RX_INVALID_FIELDS, "rx_epoch_valid": True,
     }
-    assert _rf_event_validity_fields(13, 0) == {"iq_valid": True}
-    assert _rf_event_validity_fields(24, 0) == {"iq_valid": True}
+    assert _rf_event_validity_fields(13, 0) == {
+        "iq_valid": True, "rx_epoch_valid": True,
+    }
+    assert _rf_event_validity_fields(24, 0) == {
+        "iq_valid": True, "rx_epoch_valid": True,
+    }
     assert _rf_event_validity_fields(13, RF_EVENT_F_RX_X2_LAYOUT) == {
-        "iq_valid": True, "rx_layout": "RX_X2",
+        "iq_valid": True, "rx_layout": "RX_X2", "rx_epoch_valid": True,
     }
     assert _rf_event_validity_fields(
-        13, RF_EVENT_F_TRANSITION_CHANNEL_VALID) == {
-            "iq_valid": True, "transition_channel": "RX1",
+            13, RF_EVENT_F_TRANSITION_CHANNEL_VALID) == {
+                "iq_valid": True, "rx_epoch_valid": True,
+                "transition_channel": "RX1",
         }
     assert _rf_event_validity_fields(
-        13, RF_EVENT_F_RX_X2_LAYOUT | RF_EVENT_F_TRANSITION_CHANNEL_VALID |
-        RF_EVENT_F_TRANSITION_RX2) == {
-            "iq_valid": True, "rx_layout": "RX_X2",
-            "transition_channel": "RX2",
+            13, RF_EVENT_F_RX_X2_LAYOUT | RF_EVENT_F_TRANSITION_CHANNEL_VALID |
+            RF_EVENT_F_TRANSITION_RX2) == {
+                "iq_valid": True, "rx_layout": "RX_X2",
+                "transition_channel": "RX2", "rx_epoch_valid": True,
         }
     assert _rf_event_validity_fields(
         24, RF_EVENT_F_RX_X2_LAYOUT | RF_EVENT_F_TRANSITION_CHANNEL_VALID |
