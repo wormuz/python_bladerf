@@ -2261,10 +2261,18 @@ cdef class PyBladerfDevice:
             rx_result = cbladerf.bladerf_sync_rx(
                 self.__bladerf_device, c_samples_ptr, c_num_samples,
                 c_metadata_ptr, c_timeout_ms)
-            if rx_result == 0:
+            # WOULD_BLOCK is the one retryable outcome: callers may retry the
+            # same finite epoch while waiting for its first current-epoch IQ.
+            # Every terminal read result must revoke host admission and close
+            # the FPGA gate before control returns to Python.
+            if rx_result != cbladerf.BLADERF_ERR_WOULD_BLOCK:
                 close_result = cbladerf.bladerf_rx_capture_close(
                     self.__bladerf_device, c_channel)
         self.pybladerf_dispatch_rf_events()
+        if rx_result < 0 and close_result < 0:
+            raise_error(
+                'pybladerf_sync_rx_capture_close() RX failed and capture '
+                f'close also failed ({close_result})', rx_result)
         raise_error('pybladerf_sync_rx_capture_close() RX', rx_result)
         raise_error('pybladerf_sync_rx_capture_close() close', close_result)
 

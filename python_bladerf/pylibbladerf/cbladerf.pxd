@@ -49,6 +49,7 @@ cdef extern from 'bladerf_stream.h' nogil:
 cdef extern from 'libbladeRF.h' nogil:
 
     const int BLADERF_ERR_MEM
+    const int BLADERF_ERR_WOULD_BLOCK
 
     cdef struct bladerf:
         pass
