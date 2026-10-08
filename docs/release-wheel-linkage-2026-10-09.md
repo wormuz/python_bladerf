@@ -25,13 +25,25 @@ documents this build mode and the matching-prefix requirement.
   link directory, without any `-rpath` linker option.
 - Built a CPython 3.14 wheel and installed it to a separate staging directory.
 - `readelf` reports `NEEDED libbladeRF.so.2` and no `RPATH`/`RUNPATH`.
-- With `LD_PRELOAD` unset and the local library directory on
-  `LD_LIBRARY_PATH` for this staging test, import reports
+- Initially, with `LD_PRELOAD` unset and the local library directory on
+  `LD_LIBRARY_PATH` for the staging test, import reports
   `2.6.1-git-51203bc5`, maps the fork's `libbladeRF.so.2`, and exposes
   transition begin/wait/event APIs.
 - `tests/test_rf_event_notifications.py`: 19 passed.
+- Before system installation, the same wheel without either library override
+  failed to import because `/usr/local/lib/libbladeRF.so.2` lacked
+  `bladerf_rx_transition_get_events`. This confirmed the installed library
+  was stale rather than a wheel defect.
+- Backed up the old library to
+  `/home/bonho/.local/state/bladerf/system-library-backups/20261009/libbladeRF.so.2.pre-event-chain`
+  (SHA-256 `bb53d1c7603d833c401d9fa0879dae0ed17b80772c40859a041307f7911ab354`),
+  then installed the matching fork library to `/usr/local/lib/libbladeRF.so.2`
+  and refreshed the loader cache. The installed file SHA-256 is
+  `9ade8b1fac8f957d1d3a15778344e0b109c9d6aa3bb2c24661339defe1b94320`.
+- After installation, `ldd` resolves the wheel's `libbladeRF.so.2` to
+  `/usr/local/lib/libbladeRF.so.2`. With both `LD_PRELOAD` and
+  `LD_LIBRARY_PATH` unset, the staged wheel imports the installed library,
+  reports `2.6.1-git-51203bc5`, and passes all 19 event tests.
 
-This proves wheel linkage and API pairing in a staged install. The final
-system-install check, with libbladeRF installed in a standard loader path and
-without `LD_LIBRARY_PATH`, remains a release gate. This is not a hardware
-qualification.
+This closes the Python-wheel/libbladeRF loader and API-pairing gate for this
+host. It does not qualify the hardware RX chain.
