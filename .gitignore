@@ -1,4 +1,9 @@
 __pycache__/
+build/
+*.so
+*.o
+python_bladerf/pylibbladerf/pybladerf.cpp
+python_bladerf/pybladerf_tools/pybladerf_*.cpp
 
 dist/
 .venv/
