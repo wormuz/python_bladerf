@@ -223,7 +223,8 @@ def _rf_event_validity_fields(event_type: int, flags: int,
             cbladerf.BLADERF_RF_EVT_RX_DATA_RESUMED):
         layout_fields = (
             {'rx_layout': 'RX_X2'}
-            if flags & cbladerf.BLADERF_RF_EVENT_F_RX_X2_LAYOUT else {})
+            if flags & cbladerf.BLADERF_RF_EVENT_F_RX_X2_LAYOUT
+            else {'rx_layout': 'RX_X1'})
         if flags & PYBLADERF_META_STATUS_OVERRUN:
             # These lifecycle events carry bladerf_metadata.status in flags.
             # A block marked overrun is not a complete valid-IQ boundary even
