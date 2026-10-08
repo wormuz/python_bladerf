@@ -1630,6 +1630,12 @@ class PyBladerfDevice:
     def pybladerf_rx_capture_close(self, channel: int) -> None:
         ...
 
+    def pybladerf_sync_rx_capture_close(
+            self, channel: int, samples: np.ndarray[Any, Any],
+            num_samples: int, metadata: pybladerf_metadata,
+            timeout_ms: int = 0) -> None:
+        ...
+
     def pybladerf_rx_transition_get_events(self, transaction_id: int) -> dict[str, object]:
         ...
 

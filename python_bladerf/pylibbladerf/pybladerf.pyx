@@ -2190,6 +2190,41 @@ cdef class PyBladerfDevice:
         self.pybladerf_dispatch_rf_events()
         raise_error('pybladerf_rx_capture_close()', result)
 
+    def pybladerf_sync_rx_capture_close(
+            self, channel: int, samples: np.ndarray[Any, Any],
+            num_samples: int, metadata: pybladerf_metadata,
+            timeout_ms: int = 0) -> None:
+        """Read one finite RX block and close its certified epoch immediately.
+
+        Keep the sync-read/capture-close boundary inside Cython so Python
+        callbacks, conversion, and DSP cannot run while the finite epoch is
+        still admitting samples into the RX transport.
+        """
+        cdef cbladerf.bladerf_metadata *c_metadata_ptr = NULL
+        cdef pybladerf_metadata metadata_link
+        cdef unsigned int c_num_samples = <unsigned int> num_samples
+        cdef unsigned int c_timeout_ms = <unsigned int> timeout_ms
+        cdef int c_channel = channel
+        cdef void *c_samples_ptr = <void*> <uintptr_t> samples.ctypes.data
+        cdef int rx_result
+        cdef int close_result = 0
+
+        if not isinstance(metadata, pybladerf_metadata):
+            raise TypeError('metadata must be pybladerf_metadata')
+        metadata_link = metadata
+        c_metadata_ptr = <cbladerf.bladerf_metadata*> metadata_link.get_ptr()
+
+        with nogil:
+            rx_result = cbladerf.bladerf_sync_rx(
+                self.__bladerf_device, c_samples_ptr, c_num_samples,
+                c_metadata_ptr, c_timeout_ms)
+            if rx_result == 0:
+                close_result = cbladerf.bladerf_rx_capture_close(
+                    self.__bladerf_device, c_channel)
+        self.pybladerf_dispatch_rf_events()
+        raise_error('pybladerf_sync_rx_capture_close() RX', rx_result)
+        raise_error('pybladerf_sync_rx_capture_close() close', close_result)
+
     def pybladerf_rx_transition_wait(self, transaction_id: int,
                                      timeout_ms: int) -> dict:
         """Блокує до підтвердження required-подій, timeout чи помилки.
