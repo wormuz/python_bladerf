@@ -29,6 +29,19 @@ if getenv('LIBLINK'):
     PLATFORM = 'android'
 
 if PLATFORM != 'android':
+    if getenv('PYTHON_BLADERF_RELEASE_BUILD') == '1':
+        missing_flags = [
+            name for name in ('PYTHON_BLADERF_CFLAGS', 'PYTHON_BLADERF_LDFLAGS')
+            if not getenv(name)
+        ]
+        if missing_flags:
+            raise RuntimeError(
+                'PYTHON_BLADERF_RELEASE_BUILD=1 requires explicit '
+                + ' and '.join(missing_flags)
+                + '; provide the matching libbladeRF headers and link flags '
+                'without a development RUNPATH'
+            )
+
     cflags = environ.get('CFLAGS', '')
     ldflags = environ.get('LDFLAGS', '')
     new_cflags = ''

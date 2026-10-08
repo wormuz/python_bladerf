@@ -20,6 +20,20 @@ set PYTHON_BLADERF_INCLUDE_PATH=path_to_libbladeRF.h and bladeRF2.h dir
 set PYTHON_BLADERF_LIB_PATH=path_to_libbladerf.dll dir
 ```
 
+For a release wheel, set `PYTHON_BLADERF_RELEASE_BUILD=1` and provide explicit
+`PYTHON_BLADERF_CFLAGS` and `PYTHON_BLADERF_LDFLAGS` for the matching
+libbladeRF installation. The release mode fails if either is missing and does
+not add the local-checkout RUNPATH used by developer builds. Keep the linker
+flags free of `-Wl,-rpath,...`; the installed libbladeRF must be discoverable
+through the target system's normal dynamic-loader paths.
+
+```sh
+export PYTHON_BLADERF_RELEASE_BUILD=1
+export PYTHON_BLADERF_CFLAGS="-I$BLADERF_PREFIX/include"
+export PYTHON_BLADERF_LDFLAGS="-L$BLADERF_PREFIX/lib -lbladeRF"
+python -m build --wheel
+```
+
 Sweep and scan retunes use the ADR-0207 RX transition API. An IQ block is
 accepted only after the firmware reports a valid RX epoch and the returned
 metadata matches that epoch; a timeout or invalid block stops acquisition. The legacy
