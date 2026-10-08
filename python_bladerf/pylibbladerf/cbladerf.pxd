@@ -592,6 +592,7 @@ cdef extern from 'libbladeRF.h' nogil:
         BLADERF_RF_EVT_RX_BBPLL_LOCKED
         BLADERF_RF_EVT_RX_LAYOUT_UNSUPPORTED
         BLADERF_RF_EVT_RX_INVALIDATION_CHANNEL
+        BLADERF_RF_EVT_RX_CAPTURE_CLOSED
 
     const uint32_t BLADERF_RF_REQUIRE_PLL_LOCKED
     const uint32_t BLADERF_RF_REQUIRE_ENSM_RX
@@ -697,6 +698,8 @@ cdef extern from 'libbladeRF.h' nogil:
 
     int bladerf_rx_transition_wait(bladerf *dev, uint32_t transaction_id,
         bladerf_rf_event *final_event, uint32_t timeout_ms)
+
+    int bladerf_rx_capture_close(bladerf *dev, int ch)
 
     int bladerf_rx_transition_get_events(bladerf *dev,
         uint32_t transaction_id, bladerf_rf_event *events, uint32_t capacity,

@@ -261,6 +261,9 @@ def _rf_event_validity_fields(event_type: int, flags: int,
         # the epoch/timestamp validator.
         return {**timestamp_fields, **channel_fields, **invalid_rx_fields,
                 'rx_epoch_valid': True}
+    if event_type == cbladerf.BLADERF_RF_EVT_RX_CAPTURE_CLOSED:
+        return {**channel_fields, **invalid_rx_fields,
+                'rx_capture_closed': True}
     if event_type == cbladerf.BLADERF_RF_EVT_RX_INVALIDATION_CHANNEL:
         return {**channel_fields, **invalid_rx_fields,
                 'invalidation_context': True}
@@ -456,6 +459,8 @@ def _rf_event_name(event_type: int) -> str:
         return 'rx_layout_unsupported'
     if event_type == cbladerf.BLADERF_RF_EVT_RX_INVALIDATION_CHANNEL:
         return 'rx_invalidation_channel'
+    if event_type == cbladerf.BLADERF_RF_EVT_RX_CAPTURE_CLOSED:
+        return 'rx_capture_closed'
     if event_type == cbladerf.BLADERF_RF_EVT_RX_DATA_WITHHELD:
         return 'rx_data_withheld'
     if event_type == cbladerf.BLADERF_RF_EVT_RX_EPOCH_ABORT_FAILED:
@@ -2177,6 +2182,13 @@ cdef class PyBladerfDevice:
         self.pybladerf_dispatch_rf_events()
         raise_error('pybladerf_rx_transition_begin()', result)
         return transaction_id
+
+    def pybladerf_rx_capture_close(self, channel: int) -> None:
+        """Revoke the certified finite-capture epoch and close the FPGA RX gate."""
+        result = cbladerf.bladerf_rx_capture_close(
+            self.__bladerf_device, channel)
+        self.pybladerf_dispatch_rf_events()
+        raise_error('pybladerf_rx_capture_close()', result)
 
     def pybladerf_rx_transition_wait(self, transaction_id: int,
                                      timeout_ms: int) -> dict:

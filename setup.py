@@ -35,21 +35,52 @@ if PLATFORM != 'android':
     new_ldflags = ''
 
     if PLATFORM in {'linux', 'darwin'}:
+        # In the local multi-repository checkout, always build the wrapper
+        # against the sibling bladeRF fork. pkg-config commonly points at an
+        # older system install, which can silently produce an extension with
+        # missing symbols or mismatched event enums. Explicit environment
+        # overrides still take precedence for packaging/release builds.
+        local_bladerf_root = path.abspath(
+            path.join(path.dirname(__file__), '..', 'bladerf'))
+        local_bladerf_include = path.join(
+            local_bladerf_root, 'host', 'libraries', 'libbladeRF', 'include')
+        local_bladerf_lib = path.join(
+            local_bladerf_root, 'host', 'build', 'output')
+        local_bladerf_available = path.isfile(
+            path.join(local_bladerf_lib, 'libbladeRF.so'))
+
         if environ.get('PYTHON_BLADERF_CFLAGS', None) is None:
-            try:
-                new_cflags = subprocess.check_output(['pkg-config', '--cflags', 'libbladeRF']).decode('utf-8').strip()
-                libbladerf_h_paths = [new_cflag[2:] for new_cflag in new_cflags.split()]
-            except Exception:
-                raise RuntimeError('Unable to run pkg-config. Set cflags manually export PYTHON_BLADERF_CFLAGS=') from None
+            if local_bladerf_available:
+                new_cflags = f'-I{local_bladerf_include}'
+                libbladerf_h_paths = [local_bladerf_include]
+            else:
+                try:
+                    new_cflags = subprocess.check_output(
+                        ['pkg-config', '--cflags', 'libbladeRF']).decode(
+                            'utf-8').strip()
+                    libbladerf_h_paths = [new_cflag[2:] for new_cflag in new_cflags.split()]
+                except Exception:
+                    raise RuntimeError(
+                        'Unable to run pkg-config. Set cflags manually '
+                        'export PYTHON_BLADERF_CFLAGS=') from None
         else:
             new_cflags = environ.get('PYTHON_BLADERF_CFLAGS', '')
             libbladerf_h_paths = [new_cflag[2:] for new_cflag in new_cflags.split()]
 
         if environ.get('PYTHON_BLADERF_LDFLAGS', None) is None:
-            try:
-                new_ldflags = subprocess.check_output(['pkg-config', '--libs', 'libbladeRF']).decode('utf-8').strip()
-            except Exception:
-                raise RuntimeError('Unable to run pkg-config. Set libs manually export PYTHON_BLADERF_LDFLAGS=') from None
+            if local_bladerf_available:
+                new_ldflags = (
+                    f'-L{local_bladerf_lib} -lbladeRF '
+                    f'-Wl,-rpath,{local_bladerf_lib}')
+            else:
+                try:
+                    new_ldflags = subprocess.check_output(
+                        ['pkg-config', '--libs', 'libbladeRF']).decode(
+                            'utf-8').strip()
+                except Exception:
+                    raise RuntimeError(
+                        'Unable to run pkg-config. Set libs manually '
+                        'export PYTHON_BLADERF_LDFLAGS=') from None
         else:
             new_ldflags = environ.get('PYTHON_BLADERF_LDFLAGS', '')
         # Put library arguments after extension object files. Passing these

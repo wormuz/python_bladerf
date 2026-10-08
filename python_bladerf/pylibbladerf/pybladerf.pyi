@@ -1627,6 +1627,9 @@ class PyBladerfDevice:
                                     timeout_ms: int) -> dict[str, object]:
         ...
 
+    def pybladerf_rx_capture_close(self, channel: int) -> None:
+        ...
+
     def pybladerf_rx_transition_get_events(self, transaction_id: int) -> dict[str, object]:
         ...
 
