@@ -79,6 +79,7 @@ RF_REQUIRE_EPOCH_VALID = cbladerf.BLADERF_RF_REQUIRE_EPOCH_VALID
 RF_REQUIRE_BBPLL_LOCKED = cbladerf.BLADERF_RF_REQUIRE_BBPLL_LOCKED
 RF_REQUIRE_FIRST_HOST_DATA = cbladerf.BLADERF_RF_REQUIRE_FIRST_HOST_DATA
 RF_REQUIRE_RX_X2_HOST_DATA = cbladerf.BLADERF_RF_REQUIRE_RX_X2_HOST_DATA
+RF_REQUIRE_RX_RFDC_CAL_DONE = cbladerf.BLADERF_RF_REQUIRE_RX_RFDC_CAL_DONE
 RF_INVALIDATE_GAIN = cbladerf.BLADERF_RF_INVALIDATE_GAIN
 RF_INVALIDATE_GAIN_MODE = cbladerf.BLADERF_RF_INVALIDATE_GAIN_MODE
 RF_INVALIDATE_RF_PORT = cbladerf.BLADERF_RF_INVALIDATE_RF_PORT
@@ -446,20 +447,54 @@ def _dispatch_rx_data_withheld(callbacks, callback_errors,
 
 
 def _rf_event_name(event_type: int) -> str:
-    if event_type == cbladerf.BLADERF_RF_EVT_RX_FIRST_VALID_HOST_DATA:
-        return 'rx_first_valid_host_data'
-    if event_type == cbladerf.BLADERF_RF_EVT_RX_DATA_RESUMED:
-        return 'rx_data_resumed'
-    if event_type == cbladerf.BLADERF_RF_EVT_RX_BBPLL_LOCKED:
-        return 'rx_bbpll_locked'
+    if event_type == cbladerf.BLADERF_RF_EVT_CONFIG_ACCEPTED:
+        return 'config_accepted'
+    if event_type == cbladerf.BLADERF_RF_EVT_SPI_DONE:
+        return 'spi_done'
+    if event_type == cbladerf.BLADERF_RF_EVT_RX_PLL_LOCKED:
+        return 'rx_pll_locked'
+    if event_type == cbladerf.BLADERF_RF_EVT_ENSM_RX:
+        return 'ensm_rx'
+    if event_type == cbladerf.BLADERF_RF_EVT_RX_BBDC_CAL_DONE:
+        return 'rx_bbdc_cal_done'
+    if event_type == cbladerf.BLADERF_RF_EVT_RX_RFDC_CAL_DONE:
+        return 'rx_rfdc_cal_done'
+    if event_type == cbladerf.BLADERF_RF_EVT_RX_QUAD_CAL_DONE:
+        return 'rx_quad_cal_done'
+    if event_type == cbladerf.BLADERF_RF_EVT_RX_DATAPATH_ARMED:
+        return 'rx_datapath_armed'
+    if event_type == cbladerf.BLADERF_RF_EVT_RX_EPOCH_INVALID:
+        return 'rx_epoch_invalid'
     if event_type == cbladerf.BLADERF_RF_EVT_RX_EPOCH_VALID:
         return 'rx_epoch_valid'
+    if event_type == cbladerf.BLADERF_RF_EVT_ERROR:
+        return 'error'
+    if event_type == cbladerf.BLADERF_RF_EVT_LO_SET_RETURNED:
+        return 'lo_set_returned'
+    if event_type == cbladerf.BLADERF_RF_EVT_LO_READBACK_MATCH:
+        return 'lo_readback_match'
+    if event_type == cbladerf.BLADERF_RF_EVT_RX_FIRST_VALID_HOST_DATA:
+        return 'rx_first_valid_host_data'
+    if event_type == cbladerf.BLADERF_RF_EVT_SPI_WRITE_BEGIN:
+        return 'spi_write_begin'
+    if event_type == cbladerf.BLADERF_RF_EVT_CONTROL_PLANE_CONFIRMED:
+        return 'control_plane_confirmed'
+    if event_type == cbladerf.BLADERF_RF_EVT_NIOS_RETUNE_BEGIN:
+        return 'nios_retune_begin'
+    if event_type == cbladerf.BLADERF_RF_EVT_NIOS_RETUNE_USB_OUT_DONE:
+        return 'nios_retune_usb_out_done'
+    if event_type == cbladerf.BLADERF_RF_EVT_NIOS_RETUNE_RESPONSE:
+        return 'nios_retune_response'
     if event_type == cbladerf.BLADERF_RF_EVT_RX_DATA_INVALIDATED:
         return 'rx_data_invalidated'
     if event_type == cbladerf.BLADERF_RF_EVT_RX_STREAM_OVERRUN:
         return 'rx_stream_overrun'
     if event_type == cbladerf.BLADERF_RF_EVT_RX_FORMAT_UNSUPPORTED:
         return 'rx_format_unsupported'
+    if event_type == cbladerf.BLADERF_RF_EVT_RX_DATA_RESUMED:
+        return 'rx_data_resumed'
+    if event_type == cbladerf.BLADERF_RF_EVT_RX_BBPLL_LOCKED:
+        return 'rx_bbpll_locked'
     if event_type == cbladerf.BLADERF_RF_EVT_RX_LAYOUT_UNSUPPORTED:
         return 'rx_layout_unsupported'
     if event_type == cbladerf.BLADERF_RF_EVT_RX_INVALIDATION_CHANNEL:
@@ -470,6 +505,8 @@ def _rf_event_name(event_type: int) -> str:
         return 'rx_data_withheld'
     if event_type == cbladerf.BLADERF_RF_EVT_RX_EPOCH_ABORT_FAILED:
         return 'rx_epoch_abort_failed'
+    if event_type == cbladerf.BLADERF_RF_EVT_RX_CAPTURE_CLOSED:
+        return 'rx_capture_closed'
     return 'rf_transition'
 
 

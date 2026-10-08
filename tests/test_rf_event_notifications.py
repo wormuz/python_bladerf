@@ -21,6 +21,7 @@ from python_bladerf.pylibbladerf.pybladerf import (
     RF_REQUIRE_BBPLL_LOCKED,
     RF_REQUIRE_FIRST_HOST_DATA,
     RF_REQUIRE_RX_X2_HOST_DATA,
+    RF_REQUIRE_RX_RFDC_CAL_DONE,
     RF_STREAM_STATUS_FPGA_RX_LOSS,
     RF_STREAM_STATUS_SYNC_RX_QUEUE,
     RF_STREAM_STATUS_ASYNC_USB,
@@ -597,3 +598,9 @@ def test_lo_pll_calibration_and_nios_intermediate_events_are_invalid():
         assert _rf_event_validity_fields(event_type, 0) == {
             **RX_INVALID_FIELDS,
         }
+    assert _rf_event_name(5) == "rx_rfdc_cal_done"
+    assert _rf_event_name(2) == "rx_pll_locked"
+    assert _rf_event_name(3) == "ensm_rx"
+    assert _rf_event_name(9) == "rx_epoch_valid"
+    assert _rf_event_name(13) == "rx_first_valid_host_data"
+    assert RF_REQUIRE_RX_RFDC_CAL_DONE == 1 << 7
