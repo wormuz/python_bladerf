@@ -47,3 +47,30 @@ documents this build mode and the matching-prefix requirement.
 
 This closes the Python-wheel/libbladeRF loader and API-pairing gate for this
 host. It does not qualify the hardware RX chain.
+
+## Follow-up: current firmware-stack pairing and live RX1/RX2 smoke
+
+The initial pairing above was superseded on 2026-10-09 after bladeRF fixes
+`0cb49567` and `58401a8a` were committed. The fork was rebuilt as
+`2.6.1-git-58401a8a`; `/usr/local/lib/libbladeRF.so.2` now has SHA-256
+`ae3cd253ab2532f3ba875dc7481a69a1bb161387a67ac4799fc5ef92fc34b7f8`.
+The previous installed library was preserved at
+`/home/bonho/.local/state/bladerf/system-library-backups/20261009/libbladeRF.so.2.pre-58401a8a`.
+
+A fresh CPython 3.14 no-RPATH wheel was built at
+`build/release-wheel-58401a8a/python_bladerf-1.5.0-cp314-cp314-linux_x86_64.whl`
+with SHA-256
+`55695aaffa1205ac6dde508a48a94b205e57ec8772a2bbea069b7704d37e90ac` and
+staged under `build/release-stage-58401a`. `readelf` confirms only a
+`NEEDED libbladeRF.so.2` dependency and no RPATH/RUNPATH. With both
+`LD_PRELOAD` and `LD_LIBRARY_PATH` unset, the staged wrapper resolves the
+updated system library; the 19 RF-event tests pass.
+
+Live xA4 smoke used that same staged wheel and ordinary loader resolution.
+On RX1 and RX2 independently, META RX_X1 transitions required PLL locked,
+ENSM RX, FPGA epoch valid, and first valid host data. Both completed with
+`rx_first_valid_host_data` (event 13), then returned an 8,192-sample
+`RX_NOW` capture through the terminal capture-close helper, with no error.
+This is a positive API/linkage and single-capture smoke, not a long-run or LTE
+detector release qualification. Startup reports the already-classified
+missing FPGA-size/VCTCXO calibration-record warnings; no flash was written.
