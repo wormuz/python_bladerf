@@ -174,7 +174,7 @@ def test_rf_invalidation_reason_names_cover_every_public_reason():
 
 def test_async_rx_metadata_snapshot_preserves_epoch_and_layout():
     metadata = _make_rx_callback_metadata(
-        0x123456789, 0x12, 0x34, 512, 1, 7, 3, 512)
+        0x123456789, 0x12, 0x34, 512, 1, 7, 1, 3, 512)
 
     assert metadata == {
         "timestamp": 0x123456789,
@@ -183,6 +183,7 @@ def test_async_rx_metadata_snapshot_preserves_epoch_and_layout():
         "actual_count": 512,
         "rx_epoch_id": 7,
         "rx_epoch_id_valid": True,
+        "rx_clipping_flags": 1,
         "layout": 3,
         "num_samples": 512,
     }
@@ -190,10 +191,11 @@ def test_async_rx_metadata_snapshot_preserves_epoch_and_layout():
 
 
 def test_async_rx_metadata_snapshot_marks_unavailable_epoch_explicitly():
-    metadata = _make_rx_callback_metadata(42, 0, 0, 0, 0, 0, 2, 0)
+    metadata = _make_rx_callback_metadata(42, 0, 0, 0, 0, 0, 0, 2, 0)
 
     assert metadata["rx_epoch_id"] is None
     assert metadata["rx_epoch_id_valid"] is False
+    assert metadata["rx_clipping_flags"] == 0
     assert metadata["num_samples"] == 0
     assert "iq_valid" not in metadata
 
@@ -449,10 +451,10 @@ def test_timestamp_discontinuity_reason_is_public():
 
 
 def test_native_rx_integrity_events_explicitly_mark_iq_invalid():
-    # Public RF event IDs 0..27 cover transition, data-validity, and
+    # Public RF event IDs 0..29 cover transition, data-validity, and
     # transport-integrity events. Every known event is explicit: only the
     # first or resumed host-validated META packet can set iq_valid=True.
-    for event_type in set(range(28)) - {9, 13, 19, 20, 22, 24, 27}:
+    for event_type in set(range(30)) - {9, 13, 19, 20, 22, 24, 27, 28, 29}:
         assert _rf_event_validity_fields(event_type, 0) == {
             **RX_INVALID_FIELDS,
         }
@@ -492,6 +494,23 @@ def test_native_rx_integrity_events_explicitly_mark_iq_invalid():
     assert _rf_event_validity_fields(25, 0) == RX_INVALID_FIELDS
     assert _rf_event_validity_fields(26, 0) == RX_INVALID_FIELDS
     assert _rf_event_name(26) == "rx_layout_unsupported"
+    assert _rf_event_validity_fields(29, (1 << 31) | 0x1) == {
+        "fpga_timestamp_valid": True,
+        "adc_clipped_channels": ["RX1"], "iq_quality_degraded": True,
+        "iq_valid": True, "rx_epoch_valid": True,
+    }
+    assert _rf_event_validity_fields(29, (1 << 31) | 0x2) == {
+        "fpga_timestamp_valid": True,
+        "adc_clipped_channels": ["RX2"], "iq_quality_degraded": True,
+        "iq_valid": True, "rx_epoch_valid": True,
+    }
+    assert _rf_event_validity_fields(29, (1 << 31) | 0x3) == {
+        "fpga_timestamp_valid": True,
+        "adc_clipped_channels": ["RX1", "RX2"],
+        "iq_quality_degraded": True, "iq_valid": True,
+        "rx_epoch_valid": True,
+    }
+    assert _rf_event_name(29) == "rx_adc_clipping"
     assert _rf_event_validity_fields(
         21, RF_EVENT_F_TRANSITION_CHANNEL_VALID | RF_EVENT_F_TRANSITION_RX2) == {
             **RX_INVALID_FIELDS, "transition_channel": "RX2",

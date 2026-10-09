@@ -271,6 +271,15 @@ def _rf_event_validity_fields(event_type: int, flags: int,
     if event_type == cbladerf.BLADERF_RF_EVT_RX_CAPTURE_CLOSED:
         return {**channel_fields, **invalid_rx_fields,
                 'rx_capture_closed': True}
+    if event_type == cbladerf.BLADERF_RF_EVT_RX_ADC_CLIPPING:
+        clipped = []
+        if flags & 0x1:
+            clipped.append('RX1')
+        if flags & 0x2:
+            clipped.append('RX2')
+        return {**timestamp_fields, 'adc_clipped_channels': clipped,
+                'iq_quality_degraded': True, 'iq_valid': True,
+                'rx_epoch_valid': True}
     if event_type == cbladerf.BLADERF_RF_EVT_RX_INVALIDATION_CHANNEL:
         return {**channel_fields, **invalid_rx_fields,
                 'invalidation_context': True}
@@ -502,6 +511,8 @@ def _rf_event_name(event_type: int) -> str:
         return 'rx_invalidation_channel'
     if event_type == cbladerf.BLADERF_RF_EVT_RX_CAPTURE_CLOSED:
         return 'rx_capture_closed'
+    if event_type == cbladerf.BLADERF_RF_EVT_RX_ADC_CLIPPING:
+        return 'rx_adc_clipping'
     if event_type == cbladerf.BLADERF_RF_EVT_RX_DATA_WITHHELD:
         return 'rx_data_withheld'
     if event_type == cbladerf.BLADERF_RF_EVT_RX_EPOCH_ABORT_FAILED:
@@ -1320,6 +1331,13 @@ cdef class pybladerf_metadata:
                 return self.__bladerf_metadata[0].rx_epoch_id
             return None
 
+    property rx_clipping_flags:
+        """Sticky ADC clipping bitmask: bit 0 RX1, bit 1 RX2."""
+        def __get__(self) -> int:
+            if self.__bladerf_metadata != NULL:
+                return self.__bladerf_metadata[0].rx_clipping_flags
+            return 0
+
     cdef cbladerf.bladerf_metadata *get_ptr(self):
         return self.__bladerf_metadata
 
@@ -1615,8 +1633,8 @@ ELSE:
 @cython.boundscheck(False)
 @cython.wraparound(False)
 def _make_rx_callback_metadata(timestamp, flags, status, actual_count,
-                               rx_epoch_id_valid, rx_epoch_id, layout,
-                               num_samples):
+                               rx_epoch_id_valid, rx_epoch_id,
+                               rx_clipping_flags, layout, num_samples):
     """Copy native RX metadata into a Python-owned callback snapshot."""
     return {
         'timestamp': int(timestamp),
@@ -1625,6 +1643,7 @@ def _make_rx_callback_metadata(timestamp, flags, status, actual_count,
         'actual_count': int(actual_count),
         'rx_epoch_id': int(rx_epoch_id) if rx_epoch_id_valid else None,
         'rx_epoch_id_valid': bool(rx_epoch_id_valid),
+        'rx_clipping_flags': int(rx_clipping_flags),
         'layout': int(layout),
         'num_samples': int(num_samples),
     }
@@ -1671,7 +1690,8 @@ cdef void *__rx_callback_SC16_Q11(cbladerf.bladerf *dev, cbladerf.bladerf_stream
                 num_samples, _make_rx_callback_metadata(
                     meta[0].timestamp, meta[0].flags, meta[0].status,
                     meta[0].actual_count, meta[0].rx_epoch_id_valid,
-                    meta[0].rx_epoch_id, int(pystream.layout), num_samples))
+                    meta[0].rx_epoch_id, meta[0].rx_clipping_flags,
+                    int(pystream.layout), num_samples))
         elif global_callbacks[<size_t> dev]['__rx_callback'] is not None:
             result = global_callbacks[<size_t> dev]['__rx_callback'](global_callbacks[<size_t> dev]['device'], pystream, np_buffer, num_samples)
 
@@ -1719,7 +1739,8 @@ cdef void *__rx_callback_SC8_Q7(cbladerf.bladerf *dev, cbladerf.bladerf_stream *
                 num_samples, _make_rx_callback_metadata(
                     meta[0].timestamp, meta[0].flags, meta[0].status,
                     meta[0].actual_count, meta[0].rx_epoch_id_valid,
-                    meta[0].rx_epoch_id, int(pystream.layout), num_samples))
+                    meta[0].rx_epoch_id, meta[0].rx_clipping_flags,
+                    int(pystream.layout), num_samples))
         elif global_callbacks[<size_t> dev]['__rx_callback'] is not None:
             result = global_callbacks[<size_t> dev]['__rx_callback'](global_callbacks[<size_t> dev]['device'], pystream, np_buffer, num_samples)
 

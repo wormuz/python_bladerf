@@ -341,7 +341,8 @@ cdef extern from 'libbladeRF.h' nogil:
         unsigned int actual_count
         uint8_t rx_epoch_id
         uint8_t rx_epoch_id_valid
-        uint8_t reserved[30]
+        uint8_t rx_clipping_flags
+        uint8_t reserved[29]
 
     int bladerf_interleave_stream_buffer(bladerf_channel_layout layout, bladerf_format format, unsigned int buffer_size, void *samples)
 
@@ -594,6 +595,7 @@ cdef extern from 'libbladeRF.h' nogil:
         BLADERF_RF_EVT_RX_LAYOUT_UNSUPPORTED
         BLADERF_RF_EVT_RX_INVALIDATION_CHANNEL
         BLADERF_RF_EVT_RX_CAPTURE_CLOSED
+        BLADERF_RF_EVT_RX_ADC_CLIPPING
 
     const uint32_t BLADERF_RF_REQUIRE_PLL_LOCKED
     const uint32_t BLADERF_RF_REQUIRE_ENSM_RX
