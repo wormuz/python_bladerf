@@ -101,3 +101,17 @@ sweep on xA4 with 200/200 transitions carrying `iq_valid=True`,
 and no target no-PSS dump was produced. Transition latency P50/P95/P99/max
 was 23.748/24.896/28.617/29.342 ms. Evidence: scanner report
 `/home/bonho/projects/sdr-scanner/docs/reports/rf/lte-release-rxx2-current-candidate-100-20261009.md`.
+
+## Transaction-provenance release candidate
+
+libbladeRF `3c8b7ff4` adds retained-event correlation for stale withheld META
+buffers, without changing the Python API or ABI. The installed library SHA-256
+is `001d519963a2f6849e7a8b30b64c3a11c5ac7cf9c00b31d059518558a4204c84`.
+The staged CPython 3.14 no-RPATH wheel passed all 19 RF-event tests against
+this system library with loader overrides unset.
+
+The exact wheel/library pair completed 200/200 valid RX_X2 first-host-data
+transitions and 100/100 PCI85/100RB/four-port returns in the production LTE
+path. No short reads, overrun records, or target no-PSS frames occurred.
+Transition latency P50/P95/P99/max was 23.719/24.513/24.932/25.183 ms. See
+`/home/bonho/projects/sdr-scanner/docs/reports/rf/lte-release-rxx2-3c8b7ff4-100-20261009.md`.
