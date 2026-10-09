@@ -71,6 +71,12 @@ On RX1 and RX2 independently, META RX_X1 transitions required PLL locked,
 ENSM RX, FPGA epoch valid, and first valid host data. Both completed with
 `rx_first_valid_host_data` (event 13), then returned an 8,192-sample
 `RX_NOW` capture through the terminal capture-close helper, with no error.
+The paired META RX_X2 smoke also passed at 1 Msps with a 64-buffer/32-transfer
+ring: `transition_wait` returned `rx_first_valid_host_data` with
+`rx_layout=RX_X2`, then terminal capture-close returned 8,192 samples per
+lane with no overrun. For a first paired capture, wait on the transition
+transaction before issuing a standalone `RX_NOW` read; reading first can
+legitimately return `WOULD_BLOCK` while the new epoch remains uncertified.
 This is a positive API/linkage and single-capture smoke, not a long-run or LTE
 detector release qualification. Startup reports the already-classified
 missing FPGA-size/VCTCXO calibration-record warnings; no flash was written.
