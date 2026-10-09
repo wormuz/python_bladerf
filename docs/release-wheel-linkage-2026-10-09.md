@@ -80,3 +80,24 @@ legitimately return `WOULD_BLOCK` while the new epoch remains uncertified.
 This is a positive API/linkage and single-capture smoke, not a long-run or LTE
 detector release qualification. Startup reports the already-classified
 missing FPGA-size/VCTCXO calibration-record warnings; no flash was written.
+
+## Updated event provenance build
+
+After libbladeRF commit `3c6466af` added source epoch and timestamp to
+withheld async META events, the system library was rebuilt and installed at
+`/usr/local/lib/libbladeRF.so.2` with SHA-256
+`e61df9d53fbec1f988dac5255ff9476f20a274c4f484bebb175c573d09f6825a`.
+The previous file was backed up before replacement. The existing CPython 3.14
+no-RPATH wheel was retained because the public API and ABI did not change;
+`ldd` resolves it through the normal loader, with `LD_PRELOAD` and
+`LD_LIBRARY_PATH` unset. The staged wheel's 19 RF-event tests pass against the
+updated system library.
+
+The matched wheel/system-library pair then completed a production RX_X2 LTE
+sweep on xA4 with 200/200 transitions carrying `iq_valid=True`,
+`rx_epoch_valid=True`, and first-host-data events. All 100 returns to
+1.835 GHz decoded PCI 85 / 100 RB / four ports; all 100 decoy points at
+947.5 MHz were rejected as LTE. No short reads or overrun records occurred,
+and no target no-PSS dump was produced. Transition latency P50/P95/P99/max
+was 23.748/24.896/28.617/29.342 ms. Evidence: scanner report
+`/home/bonho/projects/sdr-scanner/docs/reports/rf/lte-release-rxx2-current-candidate-100-20261009.md`.
