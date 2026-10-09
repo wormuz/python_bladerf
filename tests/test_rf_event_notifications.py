@@ -86,7 +86,11 @@ RX_INVALID_FIELDS = {
 
 
 @pytest.mark.parametrize("result", [0, -18])
-def test_trigger_configuration_dispatches_invalidation_before_result(result):
+@pytest.mark.parametrize("operation", [
+    "pybladerf_trigger_arm()",
+    "pybladerf_schedule_retune()",
+])
+def test_rf_configuration_dispatches_invalidation_before_result(result, operation):
     calls = []
 
     class Device:
@@ -94,16 +98,14 @@ def test_trigger_configuration_dispatches_invalidation_before_result(result):
             calls.append("dispatch")
 
     if result == 0:
-        _dispatch_rf_events_then_raise(
-            Device(), "pybladerf_trigger_arm()", result)
+        _dispatch_rf_events_then_raise(Device(), operation, result)
         assert calls == ["dispatch"]
     else:
         with pytest.raises(PYBLADERF_ERR_WOULD_BLOCK) as exc_info:
-            _dispatch_rf_events_then_raise(
-                Device(), "pybladerf_write_trigger()", result)
+            _dispatch_rf_events_then_raise(Device(), operation, result)
         assert calls == ["dispatch"]
         assert exc_info.value.code == result
-        assert "pybladerf_write_trigger()" in str(exc_info.value)
+        assert operation in str(exc_info.value)
 
 
 def test_rx_transition_requirement_flags_are_named_and_composable():

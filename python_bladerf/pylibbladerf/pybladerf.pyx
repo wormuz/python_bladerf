@@ -2568,7 +2568,11 @@ cdef class PyBladerfDevice:
 
         with nogil:
             result = cbladerf.bladerf_schedule_retune(self.__bladerf_device, c_channel, c_timestamp, c_frequency, c_quick_tune_ptr)
-        raise_error('pybladerf_schedule_retune()', result)
+        # libbladeRF revokes the current RX certificate before inserting a
+        # scheduled RX retune. Deliver that invalidation to Python subscribers
+        # on the same API call, including when the native call fails after
+        # recording the invalidation event.
+        _dispatch_rf_events_then_raise(self, 'pybladerf_schedule_retune()', result)
 
     def pybladerf_cancel_scheduled_retunes(self, channel: int) -> None:
         result = cbladerf.bladerf_cancel_scheduled_retunes(self.__bladerf_device, channel)
