@@ -131,6 +131,14 @@ else:
 
 class CustomBuildExt(build_ext):
     def run(self) -> None:  # type: ignore
+        # A release build must never reuse developer objects from build/lib.
+        # In particular, an extension previously linked with the sibling
+        # checkout RUNPATH would otherwise be copied unchanged into a
+        # nominally no-RPATH release wheel even when release linker flags are
+        # supplied. Re-link every extension under the selected build mode.
+        if getenv('PYTHON_BLADERF_RELEASE_BUILD') == '1':
+            self.force = True
+
         compile_env = {'ANDROID': PLATFORM == 'android'}
         self.distribution.ext_modules = cythonize(  # type: ignore
             self.distribution.ext_modules,

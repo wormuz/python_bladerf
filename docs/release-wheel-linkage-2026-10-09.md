@@ -115,3 +115,34 @@ transitions and 100/100 PCI85/100RB/four-port returns in the production LTE
 path. No short reads, overrun records, or target no-PSS frames occurred.
 Transition latency P50/P95/P99/max was 23.719/24.513/24.932/25.183 ms. See
 `/home/bonho/projects/sdr-scanner/docs/reports/rf/lte-release-rxx2-3c8b7ff4-100-20261009.md`.
+
+## Scheduled-retune callback and release-cache requalification — 2026-10-09
+
+A wrapper audit found `pybladerf_schedule_retune()` called the native API but
+raised its result without dispatching the RX invalidation event. The native
+library already fenced RX before queueing the retune; Python subscribers now
+receive that `RX_DATA_INVALIDATED(reason=frequency)` event on the same wrapper
+call. Regression coverage was expanded for dispatch on both success and an
+error return. Cython rebuilt and all 21 RF-event tests passed.
+
+The first attempted release wheel reused a developer extension from
+`build/lib` and retained its checkout `RUNPATH`, despite release linker flags.
+`CustomBuildExt` now forces recompilation whenever
+`PYTHON_BLADERF_RELEASE_BUILD=1`, so stale development objects cannot enter a
+release wheel. A fresh wheel was rebuilt and staged:
+
+- Wheel: `build/release-wheel-scheduled-retune-clean/python_bladerf-1.5.0-cp314-cp314-linux_x86_64.whl`
+- SHA-256: `a2595b0325cb5c5181a2557f42bacfd796d873c5a77ed74b5a70a87e1f5a84b8`
+- Staged extension SHA-256: `e2e939e6beb55cc0654fd7ec88003041226b97b937227814bdc1fd831ae45cf4`
+
+`readelf` reports `NEEDED libbladeRF.so.2` and no RPATH/RUNPATH. With
+`LD_PRELOAD` and `LD_LIBRARY_PATH` unset and execution from `/tmp`, the import
+resolved to the staged extension and the system loader mapped
+`/usr/local/lib/libbladeRF.so.2` (SHA-256
+`001d519963a2f6849e7a8b30b64c3a11c5ac7cf9c00b31d059518558a4204c84`). The
+staged wheel passed all 21 RF-event tests. A live xA4 check using this exact
+staged wheel queued an RX1 same-frequency fastlock retune for a future FPGA
+timestamp, observed the frequency invalidation in the Python callback before
+return, then cancelled the retune successfully. It did not retune the live
+radio. Existing FPGA-size/VCTCXO calibration warnings were emitted; no flash
+was written.
