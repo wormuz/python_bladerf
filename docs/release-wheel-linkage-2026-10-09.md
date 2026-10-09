@@ -146,3 +146,31 @@ timestamp, observed the frequency invalidation in the Python callback before
 return, then cancelled the retune successfully. It did not retune the live
 radio. Existing FPGA-size/VCTCXO calibration warnings were emitted; no flash
 was written.
+
+## RX clipping release pair — 2026-10-09
+
+After adding per-lane RX clipping event support, CMake was reconfigured after
+the implementation commits so the library version header matched the source
+commit. Installed `/usr/local/lib/libbladeRF.so.2` is now version
+`2.6.1-git-e985a454`, SHA-256
+`bbac2282a44bb1ea0cf9b6e22f5cf0cda14adb5d88acbab4bb0ae3ff46af4348`. The
+previous installed libraries remain backed up at
+`/home/bonho/.local/state/bladerf/system-library-backups/20261009/libbladeRF.so.2.pre-rx-clipping`
+and `.pre-e985a454`.
+
+The matching CPython 3.14 release wheel is
+`build/release-wheel-rx-clipping-e985a454/python_bladerf-1.5.0-cp314-cp314-linux_x86_64.whl`,
+SHA-256
+`4800cb9306ae93cb844b266fbd964ec37a1a741f0d1c7f29b7edab4ffb092b3a`.
+`readelf` shows a `NEEDED libbladeRF.so.2` dependency and no RPATH/RUNPATH;
+with loader overrides unset, `ldd` resolves to `/usr/local/lib/libbladeRF.so.2`.
+From an isolated staging directory the wheel passes all 21 RF-event tests.
+
+The exact installed-library/wheel pair passed induced clipping on RX1-only,
+RX2-only, and dual RX_X2 with the timing-qualified seed-3 sweep image. It also
+completed a production RX_X2 LTE smoke at 1.835 GHz (PCI 85, 100 RB, four
+antenna ports), plus a native 10,000-transition paired cross-band soak at
+4 Msps with zero unrecovered transitions, first-read faults, retries, or
+overruns. Full metrics and raw trace are in the scanner clipping report and
+the bladeRF RF trace. The archived wideband LTE no-PSS capture remains an
+independent open release gate.
